@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+    <title>Tablero de Control para Donaciones</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 10% 30%, #2b3a67, #1a2335);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+        .glass-app {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(30, 40, 60, 0.75);
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px);
+            border-radius: 2.5rem;
+            padding: 1.8rem 2rem 2.5rem;
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+        }
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            color: #fff;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        .header h1 {
+            font-weight: 500;
+            font-size: 1.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #e8edf5;
+        }
+        .header h1 i {
+            color: #f7d44a;
+            filter: drop-shadow(0 0 6px #f7d44a88);
+        }
+        .badge-folio {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            font-size: 0.95rem;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #c8d2ec;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 1.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 0.2rem;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 0.7rem 1.8rem;
+            border-radius: 40px 40px 0 0;
+            color: #a0b0c8;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(2px);
+            border: 1px solid transparent;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-btn i {
+            margin-right: 6px;
+        }
+        .tab-btn.active {
+            color: #e8edf5;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 3px solid #6a8fc0;
+            border-color: #6a8fc0 #6a8fc0 transparent #6a8fc0;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .tab-content {
+            display: none;
+            animation: fade 0.25s ease;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fade {
+            0% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* BOARD */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin: 1rem 0;
+        }
+        .column {
+            border-radius: 2rem;
+            padding: 1.2rem 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(6px);
+            transition: 0.2s;
+            min-height: 200px;
+        }
+        .column.dragover {
+            border-color: #6a8fc0;
+            background: rgba(106, 143, 192, 0.15);
+            box-shadow: 0 0 20px rgba(106, 143, 192, 0.2);
+        }
+        .col-red {
+            background: rgba(229, 62, 62, 0.15);
+            border-color: rgba(229, 62, 62, 0.20);
+        }
+        .col-yellow {
+            background: rgba(236, 201, 75, 0.15);
+            border-color: rgba(236, 201, 75, 0.20);
+        }
+        .col-green {
+            background: rgba(72, 187, 120, 0.15);
+            border-color: rgba(72, 187, 120, 0.20);
+        }
+        .col-delivered {
+            background: rgba(160, 174, 192, 0.12);
+            border-color: rgba(160, 174, 192, 0.18);
+        }
+
+        .column-header {
+            color: #e8edf5;
+            font-weight: 400;
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.20);
+            padding: 0.5rem 0.6rem;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .col-red .column-header {
+            background: rgba(229, 62, 62, 0.25);
+            border-color: rgba(229, 62, 62, 0.30);
+        }
+        .col-yellow .column-header {
+            background: rgba(236, 201, 75, 0.25);
+            border-color: rgba(236, 201, 75, 0.30);
+            color: #1a2335;
+        }
+        .col-green .column-header {
+            background: rgba(72, 187, 120, 0.25);
+            border-color: rgba(72, 187, 120, 0.30);
+        }
+        .col-delivered .column-header {
+            background: rgba(160, 174, 192, 0.20);
+            border-color: rgba(160, 174, 192, 0.25);
+        }
+
+        .column-header .status-label {
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+        .col-red .column-header .status-label { color: #feb2b2; }
+        .col-yellow .column-header .status-label { color: #f6e05e; }
+        .col-green .column-header .status-label { color: #9ae6b4; }
+        .col-delivered .column-header .status-label { color: #cbd5e0; }
+
+        .folio-card {
+            background: #ffffff !important;
+            backdrop-filter: none;
+            border-radius: 1.5rem;
+            padding: 0.9rem 0.8rem;
+            margin-bottom: 0.9rem;
+            border-left: 6px solid #0b1e3a !important;
+            border: 1px solid rgba(11, 30, 58, 0.15);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.10);
+            transition: 0.15s;
+            cursor: grab;
+            color: #0b1e3a;
+        }
+        .folio-card:active {
+            cursor: grabbing;
+        }
+        .folio-card:hover {
+            background: #f5f7fa !important;
+            transform: scale(1.02);
+            box-shadow: 0 8px 18px rgba(11, 30, 58, 0.12);
+        }
+        .folio-card.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+
+        .folio-id {
+            font-weight: 700;
+            color: #0b1e3a;
+            font-size: 1.3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .folio-id .folio-tag {
+            font-size: 1.1rem;
+            background: #e8ecf0;
+            padding: 0.1rem 0.8rem;
+            border-radius: 30px;
+            color: #0b1e3a;
+            border: 1px solid #b8c4ce;
+        }
+        .folio-id .sin-folio {
+            font-size: 0.8rem;
+            color: #5a6a7a;
+            font-weight: 400;
+            background: #edf0f3;
+            padding: 0.1rem 0.8rem;
+            border-radius: 30px;
+        }
+        .folio-id small {
+            font-weight: 300;
+            font-size: 0.7rem;
+            background: #e8ecf0;
+            padding: 0.15rem 0.7rem;
+            border-radius: 30px;
+            color: #1a3050;
+        }
+
+        .lote-info {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.3rem 0.8rem;
+            margin: 0.2rem 0 0.2rem;
+            font-size: 0.7rem;
+            color: #3a4a5a;
+        }
+        .lote-info i {
+            width: 14px;
+            color: #1a3050;
+        }
+
+        .retraso-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+            font-size: 0.7rem;
+            color: #0b1e3a;
+        }
+        .retraso-indicator .light-blue {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #1a3050;
+            box-shadow: 0 0 10px rgba(26, 48, 80, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .responsable {
+            font-size: 0.65rem;
+            background: #e8ecf0;
+            padding: 0.1rem 0.8rem;
+            border-radius: 40px;
+            display: inline-block;
+            color: #0b1e3a;
+            margin-top: 4px;
+        }
+
+        .entrega-info {
+            font-size: 0.65rem;
+            color: #3a4a5a;
+            margin-top: 2px;
+        }
+        .entrega-info i {
+            margin-right: 4px;
+            color: #1a3050;
+        }
+
+        .folio-card .btn-warning {
+            background: #ecc94b;
+            border-color: #ecc94b;
+            color: #1a2335;
+        }
+        .folio-card .btn-warning:hover {
+            background: #d69e2e;
+        }
+        .folio-card .btn-success {
+            background: #48bb78;
+            border-color: #48bb78;
+            color: #fff;
+        }
+        .folio-card .btn-success:hover {
+            background: #38a169;
+        }
+        .folio-card .btn-gray {
+            background: #718096;
+            border-color: #718096;
+            color: #fff;
+        }
+        .folio-card .btn-gray:hover {
+            background: #4a5568;
+        }
+
+        /* TABLA CON FILTROS EN ENCABEZADOS */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 2rem;
+            background: rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(4px);
+            padding: 0.2rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #d0d8e8;
+            font-size: 0.85rem;
+            min-width: 700px;
+        }
+        th {
+            text-align: left;
+            padding: 0.4rem 0.4rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            vertical-align: top;
+            min-width: 70px;
+        }
+        th .th-label {
+            display: block;
+            font-weight: 400;
+            color: #8a9ab0;
+            font-size: 0.7rem;
+            padding-bottom: 2px;
+            letter-spacing: 0.3px;
+        }
+        th .th-label i {
+            margin-right: 4px;
+            font-size: 0.65rem;
+        }
+        th select.filter-select {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 0.2rem 0.4rem;
+            color: #e8edf5;
+            font-size: 0.65rem;
+            backdrop-filter: blur(4px);
+            outline: none;
+            cursor: pointer;
+            min-width: 50px;
+            max-width: 110px;
+        }
+        th select.filter-select:focus {
+            border-color: #6a8fc0;
+            background: rgba(255, 255, 255, 0.10);
+        }
+        th select.filter-select option {
+            background: #1f2a3f;
+            color: #e8edf5;
+        }
+        th select.filter-select option:checked {
+            background: #2a4a7a;
+        }
+
+        td {
+            padding: 0.5rem 0.4rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            vertical-align: middle;
+            font-size: 0.75rem;
+        }
+        td .light-blue {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #1a3050;
+            box-shadow: 0 0 8px rgba(26, 48, 80, 0.25);
+        }
+        .table-wrap tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .table-wrap tr td .acciones {
+            display: flex;
+            gap: 0.3rem;
+            opacity: 0.5;
+            transition: 0.2s;
+        }
+        .table-wrap tr:hover td .acciones {
+            opacity: 1;
+        }
+        .table-wrap tr td .acciones .btn-icon {
+            background: transparent;
+            border: none;
+            color: #8a9ab0;
+            cursor: pointer;
+            padding: 0.15rem 0.3rem;
+            border-radius: 50%;
+            transition: 0.15s;
+            font-size: 0.7rem;
+        }
+        .table-wrap tr td .acciones .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e8edf5;
+        }
+        .table-wrap tr td .acciones .btn-icon.danger:hover {
+            color: #fc8181;
+            background: rgba(229, 62, 62, 0.15);
+        }
+        .table-wrap tr td .acciones .btn-icon.edit:hover {
+            color: #63b3ed;
+            background: rgba(66, 153, 225, 0.15);
+        }
+
+        .table-wrap tr.editing td {
+            background: rgba(66, 153, 225, 0.08);
+        }
+        .table-wrap tr.editing td input,
+        .table-wrap tr.editing td select {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(66, 153, 225, 0.3);
+            border-radius: 0.3rem;
+            padding: 0.15rem 0.3rem;
+            color: #e8edf5;
+            font-size: 0.75rem;
+            width: 100%;
+            min-width: 45px;
+        }
+        .table-wrap tr.editing td input:focus,
+        .table-wrap tr.editing td select:focus {
+            outline: 2px solid rgba(66, 153, 225, 0.4);
+        }
+        .table-wrap tr.editing td .btn-icon.save {
+            color: #68d391;
+        }
+        .table-wrap tr.editing td .btn-icon.save:hover {
+            color: #48bb78;
+            background: rgba(72, 187, 120, 0.15);
+        }
+        .table-wrap tr.editing td .btn-icon.cancel {
+            color: #fc8181;
+        }
+        .table-wrap tr.editing td .btn-icon.cancel:hover {
+            color: #e53e3e;
+            background: rgba(229, 62, 62, 0.15);
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e8edf5;
+            padding: 0.4rem 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: 0.15s;
+            font-size: 0.8rem;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .btn-primary {
+            background: rgba(66, 153, 225, 0.25);
+            border-color: rgba(66, 153, 225, 0.30);
+        }
+        .btn-primary:hover {
+            background: rgba(66, 153, 225, 0.35);
+        }
+        .btn-success {
+            background: rgba(72, 187, 120, 0.25);
+            border-color: rgba(72, 187, 120, 0.30);
+        }
+        .btn-success:hover {
+            background: rgba(72, 187, 120, 0.35);
+        }
+        .btn-warning {
+            background: rgba(236, 201, 75, 0.25);
+            border-color: rgba(236, 201, 75, 0.30);
+            color: #f6e05e;
+        }
+        .btn-warning:hover {
+            background: rgba(236, 201, 75, 0.35);
+        }
+        .btn-sm {
+            padding: 0.2rem 0.8rem;
+            font-size: 0.7rem;
+        }
+        .btn-gray {
+            background: rgba(160, 174, 192, 0.15);
+            border-color: rgba(160, 174, 192, 0.20);
+        }
+        .btn-gray:hover {
+            background: rgba(160, 174, 192, 0.25);
+        }
+        .btn-success-solid {
+            background: #48bb78;
+            border-color: #48bb78;
+            color: #fff;
+        }
+        .btn-success-solid:hover {
+            background: #38a169;
+        }
+        .btn-json-export {
+            background: rgba(255, 215, 0, 0.20);
+            border-color: rgba(255, 215, 0, 0.30);
+            color: #f6e05e;
+        }
+        .btn-json-export:hover {
+            background: rgba(255, 215, 0, 0.30);
+        }
+        .btn-json-import {
+            background: rgba(255, 215, 0, 0.15);
+            border-color: rgba(255, 215, 0, 0.20);
+            color: #f6e05e;
+        }
+        .btn-json-import:hover {
+            background: rgba(255, 215, 0, 0.25);
+        }
+
+        /* Drop zone para arrastrar archivos */
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 2rem;
+            padding: 1.5rem;
+            text-align: center;
+            color: #8a9ab0;
+            transition: 0.3s;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+            margin-bottom: 1rem;
+        }
+        .drop-zone:hover {
+            border-color: rgba(106, 143, 192, 0.4);
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .drop-zone.drag-over {
+            border-color: #6a8fc0;
+            background: rgba(106, 143, 192, 0.10);
+        }
+        .drop-zone i {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* MODALES */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .modal-glass {
+            background: rgba(30, 40, 60, 0.85);
+            backdrop-filter: blur(18px);
+            border-radius: 2.5rem;
+            padding: 2rem;
+            max-width: 700px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6);
+            color: #e8edf5;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-glass h2 {
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+            color: #e8edf5;
+        }
+        .modal-glass label {
+            display: block;
+            margin: 0.8rem 0 0.2rem;
+            font-size: 0.8rem;
+            color: #8a9ab0;
+        }
+        .modal-glass input,
+        .modal-glass select,
+        .modal-glass textarea {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.20);
+            color: #e8edf5;
+            font-size: 0.95rem;
+        }
+        .modal-glass input:focus,
+        .modal-glass select:focus,
+        .modal-glass textarea:focus {
+            outline: 2px solid rgba(66, 153, 225, 0.4);
+        }
+        .modal-glass textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.8rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .modal-actions .btn {
+            padding: 0.5rem 2rem;
+        }
+        .close-btn {
+            background: rgba(255, 70, 70, 0.15);
+            border-color: rgba(255, 70, 70, 0.20);
+        }
+        .close-btn:hover {
+            background: rgba(255, 70, 70, 0.25);
+        }
+
+        @media (max-width: 700px) {
+            .glass-app {
+                padding: 1.2rem;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+            .board {
+                grid-template-columns: 1fr;
+            }
+            .folio-id {
+                font-size: 1.1rem;
+            }
+            .folio-id .folio-tag {
+                font-size: 0.9rem;
+            }
+            th select.filter-select {
+                max-width: 60px;
+                font-size: 0.55rem;
+                padding: 0.1rem 0.2rem;
+            }
+            th .th-label {
+                font-size: 0.55rem;
+            }
+            td {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.15rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-app">
+        <div class="header">
+            <h1><i class="fas fa-traffic-light"></i> Tablero de Control para Donaciones</h1>
+            <span class="badge-folio" id="badgeFolio"><i class="fas fa-boxes"></i> 0 lotes</span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tabBoard"><i class="fas fa-th"></i> Tablero</button>
+            <button class="tab-btn" data-tab="tabList"><i class="fas fa-list"></i> Lista completa</button>
+        </div>
+
+        <!-- TABLERO -->
+        <div id="tabBoard" class="tab-content active">
+            <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <span style="color: #8a9ab0; font-size: 0.8rem; align-self: center;"><i class="fas fa-arrows-alt"></i> Arrastra las tarjetas para cambiar el estado</span>
+            </div>
+            <div class="board" id="boardContainer"></div>
+        </div>
+
+        <!-- LISTA -->
+        <div id="tabList" class="tab-content">
+            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; align-items: center;">
+                <button class="btn btn-primary" onclick="openAgregarProductoModal()"><i class="fas fa-plus"></i> Agregar producto</button>
+                
+                <button class="btn btn-success-solid" onclick="exportarExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><i class="fas fa-file-excel"></i> Importar Excel</button>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(event)">
+                
+                <button class="btn btn-json-export" onclick="exportarJSON()"><i class="fas fa-file-code"></i> Exportar JSON</button>
+                <button class="btn btn-json-import" onclick="document.getElementById('jsonFileInput').click()"><i class="fas fa-file-code"></i> Importar JSON</button>
+                <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importarJSON(event)">
+                
+                <button class="btn btn-sm" onclick="limpiarTodosLosFiltros()" style="margin-left: auto;"><i class="fas fa-undo"></i> Limpiar filtros</button>
+            </div>
+
+            <!-- Drop zone para arrastrar archivos -->
+            <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Arrastra y suelta un archivo Excel o JSON aquí</span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>
+                                <span class="th-label"><i class="fas fa-hashtag"></i> Folio</span>
+                                <select class="filter-select" id="filterFolio" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-box"></i> Lote</span>
+                                <select class="filter-select" id="filterLote" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-code"></i> COMA</span>
+                                <select class="filter-select" id="filterComa" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-cube"></i> Piezas</span>
+                                <select class="filter-select" id="filterPiezas" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-tag"></i> Descripción</span>
+                                <select class="filter-select" id="filterDesc" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-box-open"></i> Empaque</span>
+                                <select class="filter-select" id="filterEmpaque" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-weight-hanging"></i> Capacidad</span>
+                                <select class="filter-select" id="filterCapacidad" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-comment"></i> Motivo</span>
+                                <select class="filter-select" id="filterMotivo" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-user-tie"></i> Responsable</span>
+                                <select class="filter-select" id="filterResponsable" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-calendar-alt"></i> Fecha reg.</span>
+                                <select class="filter-select" id="filterFecha" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-calendar-check"></i> Entrega</span>
+                                <select class="filter-select" id="filterEntrega" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </th>
+                            <th>
+                                <span class="th-label"><i class="fas fa-clock"></i> Retraso</span>
+                                <select class="filter-select" id="filterRetraso" onchange="aplicarFiltros()">
+                                    <option value="">Todos</option>
+                                    <option value="Si">Si</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </th>
+                            <th style="min-width:55px;">
+                                <span class="th-label"><i class="fas fa-cog"></i> Acciones</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalContainer"></div>
+
+    <script>
+        // ---------- ESTADO ----------
+        let lotes = [];
+        let productos = [];
+        let nextLoteId = 1;
+        let nextProdId = 1;
+        let editingRowId = null;
+
+        // ---------- FUNCIONES AUX ----------
+        function getLote(id) { return lotes.find(l => l.id === id); }
+        function getProductosByLote(loteId) { return productos.filter(p => p.loteId === loteId); }
+        function getStatus(loteId) { const l = getLote(loteId); return l ? l.status : null; }
+        function getFolio(loteId) { const l = getLote(loteId); return l ? l.folio : null; }
+
+        function getDiasAtraso(loteId) {
+            const l = getLote(loteId);
+            if (!l) return 0;
+            const diff = Date.now() - new Date(l.fechaCreacion).getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+
+        function getResponsable(status) {
+            if (status === 'Rojo') return 'Inventarios';
+            if (status === 'Amarillo') return 'Compras';
+            if (status === 'Verde') return 'Inventarios';
+            if (status === 'Entregado') return 'Donataria';
+            return '—';
+        }
+
+        function getAdditionalLight(status, dias) {
+            if (status === 'Rojo' && dias > 1) return 'blue';
+            if (status === 'Amarillo') {
+                const now = new Date();
+                const diasHastaViernes = (5 - now.getDay() + 7) % 7 || 7;
+                if (dias > diasHastaViernes) return 'blue';
+            }
+            if (status === 'Verde' && dias > 7) return 'blue';
+            return null;
+        }
+
+        function actualizarBadge() {
+            document.getElementById('badgeFolio').innerHTML = `<i class="fas fa-boxes"></i> ${lotes.length} lotes`;
+        }
+
+        // ========== EXCEL: EXPORTAR ==========
+        function exportarExcel() {
+            const data = [];
+            data.push(['Folio', 'Lote', 'COMA', 'Piezas', 'Descripción', 'Empaque', 'Capacidad', 'Motivo', 'Responsable', 'Fecha Registro', 'Fecha Entrega', 'Estado', 'Retraso']);
+
+            productos.forEach(p => {
+                const st = getStatus(p.loteId);
+                const folio = getFolio(p.loteId) || 'Sin folio';
+                const loteStr = `Lote #${p.loteId}`;
+                const responsable = getResponsable(st);
+                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
+                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                const tieneRetraso = extra ? 'Si' : 'No';
+
+                data.push([
+                    folio, loteStr, p.coma, p.piezas, p.desc, p.empaque, p.capacidad,
+                    p.motivo, responsable, fechaReg, entrega, st, tieneRetraso
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+            ws['!cols'] = [
+                { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
+                { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+                { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+                { wch: 8 }
+            ];
+            XLSX.writeFile(wb, 'Inventario_Lotes.xlsx');
+        }
+
+        // ========== EXCEL: IMPORTAR ==========
+        function importarExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            procesarArchivoExcel(file);
+            event.target.value = '';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    procesarArchivoExcel(file);
+                } else if (file.name.endsWith('.json')) {
+                    procesarArchivoJSON(file);
+                } else {
+                    alert('Por favor, sube un archivo Excel (.xlsx/.xls) o JSON (.json)');
+                }
+            }
+        }
+
+        function procesarArchivoExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    if (jsonData.length === 0) {
+                        alert('El archivo está vacío.');
+                        return;
+                    }
+                    const resultados = procesarImportacion(jsonData);
+                    mostrarResumenImportacion(resultados);
+                } catch (error) {
+                    alert('Error al leer el archivo Excel: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ========== JSON: EXPORTAR ==========
+        function exportarJSON() {
+            const data = productos.map(p => {
+                const st = getStatus(p.loteId);
+                return {
+                    folio: getFolio(p.loteId) || null,
+                    lote: `Lote #${p.loteId}`,
+                    coma: p.coma,
+                    piezas: p.piezas,
+                    descripcion: p.desc,
+                    empaque: p.empaque,
+                    capacidad: p.capacidad,
+                    motivo: p.motivo,
+                    estado: st,
+                    fecha_registro: new Date(p.fechaRegistro).toISOString().split('T')[0],
+                    fecha_entrega: getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toISOString().split('T')[0] : null
+                };
+            });
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Inventario_Lotes.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ========== JSON: IMPORTAR ==========
+        function importarJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            procesarArchivoJSON(file);
+            event.target.value = '';
+        }
+
+        function procesarArchivoJSON(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+                        alert('El archivo JSON está vacío o no es un array válido.');
+                        return;
+                    }
+                    const resultados = procesarImportacion(jsonData);
+                    mostrarResumenImportacion(resultados);
+                } catch (error) {
+                    alert('Error al leer el archivo JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ========== PROCESAR IMPORTACIÓN (común para Excel y JSON) ==========
+        function procesarImportacion(data) {
+            let nuevos = 0;
+            let duplicados = 0;
+            let errores = 0;
+            let resultados = [];
+
+            data.forEach(row => {
+                // Buscar columnas por nombre (flexible para Excel y JSON)
+                const coma = row['COMA'] || row['Coma'] || row['coma'] || '';
+                const piezas = parseInt(row['Piezas'] || row['piezas'] || 0);
+                const desc = row['Descripción'] || row['Descripcion'] || row['descripcion'] || row['desc'] || 'Sin descripción';
+                const empaque = row['Empaque'] || row['empaque'] || '—';
+                const capacidad = row['Capacidad'] || row['capacidad'] || '—';
+                const motivo = row['Motivo'] || row['motivo'] || '—';
+                const folio = row['Folio'] || row['folio'] || null;
+                const loteStr = row['Lote'] || row['lote'] || null;
+
+                if (!coma) {
+                    errores++;
+                    resultados.push({ tipo: 'error', mensaje: 'Falta COMA en una fila' });
+                    return;
+                }
+
+                // Verificar duplicado por COMA exacto
+                const existe = productos.find(p => p.coma === coma);
+                if (existe) {
+                    duplicados++;
+                    resultados.push({ tipo: 'duplicado', mensaje: `COMA "${coma}" ya existe` });
+                    return;
+                }
+
+                // Determinar lote
+                let loteId = null;
+                if (loteStr && loteStr.startsWith('Lote #')) {
+                    const num = parseInt(loteStr.replace('Lote #', ''));
+                    if (!isNaN(num)) {
+                        const loteExistente = getLote(num);
+                        if (loteExistente) {
+                            loteId = num;
+                        }
+                    }
+                }
+
+                if (!loteId && folio) {
+                    const lotePorFolio = lotes.find(l => l.folio === folio);
+                    if (lotePorFolio) {
+                        loteId = lotePorFolio.id;
+                    }
+                }
+
+                // Si no hay lote, crear uno nuevo en Rojo
+                if (!loteId) {
+                    loteId = nextLoteId++;
+                    const nuevoLote = {
+                        id: loteId,
+                        folio: folio || null,
+                        status: 'Rojo',
+                        fechaCreacion: new Date().toISOString(),
+                        fechaEntrega: null
+                    };
+                    if (folio && !lotes.some(l => l.folio === folio)) {
+                        nuevoLote.folio = folio;
+                    }
+                    lotes.push(nuevoLote);
+                }
+
+                // Crear producto
+                productos.push({
+                    id: nextProdId++,
+                    loteId: loteId,
+                    coma: coma,
+                    piezas: piezas,
+                    desc: desc,
+                    empaque: empaque,
+                    capacidad: capacidad,
+                    motivo: motivo,
+                    fechaRegistro: new Date().toISOString()
+                });
+                nuevos++;
+                resultados.push({ tipo: 'nuevo', mensaje: `Producto "${coma}" agregado al Lote #${loteId}` });
+            });
+
+            return { nuevos, duplicados, errores, resultados };
+        }
+
+        // ========== MOSTRAR RESUMEN IMPORTACIÓN ==========
+        function mostrarResumenImportacion(resultados) {
+            const { nuevos, duplicados, errores, resultados: detalles } = resultados;
+            
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-file-import"></i> Resumen de importación</h2>
+                    <div style="margin: 1rem 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div style="background: rgba(72, 187, 120, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #68d391;">${nuevos}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Nuevos productos</div>
+                        </div>
+                        <div style="background: rgba(236, 201, 75, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #f6e05e;">${duplicados}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Duplicados omitidos</div>
+                        </div>
+                        <div style="background: rgba(229, 62, 62, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #fc8181;">${errores}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Errores</div>
+                        </div>
+                    </div>
+                    <div style="max-height: 200px; overflow-y: auto; font-size: 0.8rem; color: #c8d2ec;">
+                        ${detalles.slice(0, 20).map(d => `<div>• ${d.mensaje}</div>`).join('')}
+                        ${detalles.length > 20 ? `<div>... y ${detalles.length - 20} más</div>` : ''}
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cerrar</button>
+                        <button class="btn btn-success" onclick="cerrarModal(); renderBoard(); aplicarFiltros();">Aceptar</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        // ========== OBTENER FILAS FILTRADAS ==========
+        function getFilteredRows() {
+            const filterFolio = document.getElementById('filterFolio').value;
+            const filterLote = document.getElementById('filterLote').value;
+            const filterComa = document.getElementById('filterComa').value;
+            const filterPiezas = document.getElementById('filterPiezas').value;
+            const filterDesc = document.getElementById('filterDesc').value;
+            const filterEmpaque = document.getElementById('filterEmpaque').value;
+            const filterCapacidad = document.getElementById('filterCapacidad').value;
+            const filterMotivo = document.getElementById('filterMotivo').value;
+            const filterResponsable = document.getElementById('filterResponsable').value;
+            const filterFecha = document.getElementById('filterFecha').value;
+            const filterEntrega = document.getElementById('filterEntrega').value;
+            const filterRetraso = document.getElementById('filterRetraso').value;
+
+            return productos.filter(p => {
+                const st = getStatus(p.loteId);
+                const folio = getFolio(p.loteId) || 'Sin folio';
+                const loteStr = `Lote #${p.loteId}`;
+                const responsable = getResponsable(st);
+                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
+                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                const tieneRetraso = extra ? 'Si' : 'No';
+
+                if (filterFolio && folio !== filterFolio) return false;
+                if (filterLote && loteStr !== filterLote) return false;
+                if (filterComa && p.coma !== filterComa) return false;
+                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
+                if (filterDesc && p.desc !== filterDesc) return false;
+                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
+                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
+                if (filterMotivo && p.motivo !== filterMotivo) return false;
+                if (filterResponsable && responsable !== filterResponsable) return false;
+                if (filterFecha && fechaReg !== filterFecha) return false;
+                if (filterEntrega && entrega !== filterEntrega) return false;
+                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
+                return true;
+            });
+        }
+
+        // ========== ACTUALIZAR OPCIONES DE FILTROS ==========
+        function actualizarOpcionesFiltros() {
+            const filterFolio = document.getElementById('filterFolio').value;
+            const filterLote = document.getElementById('filterLote').value;
+            const filterComa = document.getElementById('filterComa').value;
+            const filterPiezas = document.getElementById('filterPiezas').value;
+            const filterDesc = document.getElementById('filterDesc').value;
+            const filterEmpaque = document.getElementById('filterEmpaque').value;
+            const filterCapacidad = document.getElementById('filterCapacidad').value;
+            const filterMotivo = document.getElementById('filterMotivo').value;
+            const filterResponsable = document.getElementById('filterResponsable').value;
+            const filterFecha = document.getElementById('filterFecha').value;
+            const filterEntrega = document.getElementById('filterEntrega').value;
+            const filterRetraso = document.getElementById('filterRetraso').value;
+
+            const datosVisibles = productos.filter(p => {
+                const st = getStatus(p.loteId);
+                const folio = getFolio(p.loteId) || 'Sin folio';
+                const loteStr = `Lote #${p.loteId}`;
+                const responsable = getResponsable(st);
+                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
+                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                const tieneRetraso = extra ? 'Si' : 'No';
+
+                if (filterFolio && folio !== filterFolio) return false;
+                if (filterLote && loteStr !== filterLote) return false;
+                if (filterComa && p.coma !== filterComa) return false;
+                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
+                if (filterDesc && p.desc !== filterDesc) return false;
+                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
+                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
+                if (filterMotivo && p.motivo !== filterMotivo) return false;
+                if (filterResponsable && responsable !== filterResponsable) return false;
+                if (filterFecha && fechaReg !== filterFecha) return false;
+                if (filterEntrega && entrega !== filterEntrega) return false;
+                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
+                return true;
+            });
+
+            const folios = [...new Set(datosVisibles.map(p => getFolio(p.loteId) || 'Sin folio'))].sort();
+            const lotesSet = [...new Set(datosVisibles.map(p => `Lote #${p.loteId}`))].sort((a,b) => {
+                const numA = parseInt(a.replace('Lote #',''));
+                const numB = parseInt(b.replace('Lote #',''));
+                return numA - numB;
+            });
+            const comas = [...new Set(datosVisibles.map(p => p.coma))].sort();
+            const piezas = [...new Set(datosVisibles.map(p => String(p.piezas)))].sort((a,b) => parseInt(a)-parseInt(b));
+            const descs = [...new Set(datosVisibles.map(p => p.desc))].sort();
+            const empaques = [...new Set(datosVisibles.map(p => p.empaque))].sort();
+            const capacidades = [...new Set(datosVisibles.map(p => p.capacidad))].sort();
+            const motivos = [...new Set(datosVisibles.map(p => p.motivo))].sort();
+            const responsables = [...new Set(datosVisibles.map(p => getResponsable(getStatus(p.loteId))))].sort();
+            const fechas = [...new Set(datosVisibles.map(p => new Date(p.fechaRegistro).toLocaleDateString()))].sort();
+            const entregas = [...new Set(datosVisibles.map(p => {
+                const l = getLote(p.loteId);
+                return l?.fechaEntrega ? new Date(l.fechaEntrega).toLocaleDateString() : '—';
+            }))].sort();
+
+            const selects = {
+                filterFolio: folios,
+                filterLote: lotesSet,
+                filterComa: comas,
+                filterPiezas: piezas,
+                filterDesc: descs,
+                filterEmpaque: empaques,
+                filterCapacidad: capacidades,
+                filterMotivo: motivos,
+                filterResponsable: responsables,
+                filterFecha: fechas,
+                filterEntrega: entregas
+            };
+
+            const currentValues = {};
+            Object.keys(selects).forEach(id => {
+                const select = document.getElementById(id);
+                if (select) currentValues[id] = select.value;
+            });
+
+            Object.keys(selects).forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const currentVal = currentValues[id] || '';
+                const options = selects[id] || [];
+                
+                select.innerHTML = '<option value="">Todos</option>';
+                options.forEach(val => {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    select.appendChild(opt);
+                });
+                
+                if (currentVal && options.includes(currentVal)) {
+                    select.value = currentVal;
+                } else {
+                    select.value = '';
+                }
+            });
+
+            const retrasoSelect = document.getElementById('filterRetraso');
+            const retrasoVal = retrasoSelect.value;
+            retrasoSelect.innerHTML = '<option value="">Todos</option><option value="Si">Si</option><option value="No">No</option>';
+            if (retrasoVal && ['Si', 'No'].includes(retrasoVal)) {
+                retrasoSelect.value = retrasoVal;
+            }
+        }
+
+        // ========== APLICAR FILTROS ==========
+        function aplicarFiltros() {
+            editingRowId = null;
+            renderList();
+            actualizarOpcionesFiltros();
+        }
+
+        // ========== LIMPIAR TODOS LOS FILTROS ==========
+        function limpiarTodosLosFiltros() {
+            document.querySelectorAll('.filter-select').forEach(sel => sel.value = '');
+            aplicarFiltros();
+        }
+
+        // ========== DRAG & DROP TARJETAS ==========
+        let draggedCardId = null;
+        let dragGhost = null;
+
+        function iniciarDrag(e, loteId) {
+            draggedCardId = loteId;
+            const card = e.target.closest('.folio-card');
+            if (card) {
+                card.classList.add('dragging');
+                dragGhost = card.cloneNode(true);
+                dragGhost.classList.add('drag-overlay');
+                dragGhost.style.width = card.offsetWidth + 'px';
+                dragGhost.style.position = 'fixed';
+                dragGhost.style.pointerEvents = 'none';
+                dragGhost.style.opacity = '0.8';
+                dragGhost.style.transform = 'rotate(-3deg) scale(1.05)';
+                dragGhost.style.zIndex = '1000';
+                document.body.appendChild(dragGhost);
+                
+                const rect = card.getBoundingClientRect();
+                dragGhost.style.left = (e.clientX - rect.width/2) + 'px';
+                dragGhost.style.top = (e.clientY - rect.height/2) + 'px';
+                
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', loteId);
+            }
+        }
+
+        function terminarDrag(e) {
+            if (dragGhost) {
+                dragGhost.remove();
+                dragGhost = null;
+            }
+            document.querySelectorAll('.folio-card.dragging').forEach(c => c.classList.remove('dragging'));
+            document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+            draggedCardId = null;
+        }
+
+        function soltarTarjeta(e) {
+            e.preventDefault();
+            const targetColumn = e.target.closest('.column');
+            if (!targetColumn) {
+                terminarDrag(e);
+                return;
+            }
+
+            const loteId = parseInt(e.dataTransfer.getData('text/plain'));
+            if (isNaN(loteId)) {
+                terminarDrag(e);
+                return;
+            }
+
+            const columnaStatus = targetColumn.querySelector('.status-label')?.textContent;
+            if (!columnaStatus) {
+                terminarDrag(e);
+                return;
+            }
+
+            const lote = getLote(loteId);
+            if (!lote) {
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === columnaStatus) {
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Rojo' && columnaStatus === 'Amarillo' && !lote.folio) {
+                alert('Para mover a Amarillo, primero debes asignar un folio al lote.');
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Rojo' && (columnaStatus === 'Verde' || columnaStatus === 'Entregado')) {
+                alert('No puedes saltar de Rojo a Verde o Entregado. Primero debes pasar por Amarillo.');
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Amarillo' && columnaStatus === 'Rojo') {
+                alert('No puedes mover un lote de Amarillo a Rojo.');
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Amarillo' && columnaStatus === 'Entregado') {
+                alert('No puedes saltar de Amarillo a Entregado. Primero debes pasar por Verde.');
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Verde' && (columnaStatus === 'Rojo' || columnaStatus === 'Amarillo')) {
+                alert('No puedes mover un lote de Verde a Rojo o Amarillo.');
+                terminarDrag(e);
+                return;
+            }
+
+            if (lote.status === 'Entregado') {
+                alert('Un lote entregado no puede cambiar de estado.');
+                terminarDrag(e);
+                return;
+            }
+
+            lote.status = columnaStatus;
+            lote.fechaCreacion = new Date().toISOString();
+
+            if (columnaStatus === 'Verde' && !lote.fechaEntrega) {
+                lote.fechaEntrega = new Date().toISOString();
+            }
+
+            if (columnaStatus === 'Entregado' && !lote.fechaEntrega) {
+                lote.fechaEntrega = new Date().toISOString();
+            }
+
+            terminarDrag(e);
+            renderBoard();
+            aplicarFiltros();
+        }
+
+        function permitirSoltar(e) {
+            e.preventDefault();
+            const column = e.target.closest('.column');
+            if (column) {
+                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+                column.classList.add('dragover');
+            }
+        }
+
+        function salirColumna(e) {
+            const column = e.target.closest('.column');
+            if (column) {
+                column.classList.remove('dragover');
+            }
+        }
+
+        // ========== RENDER TABLERO ==========
+        function renderBoard() {
+            const board = document.getElementById('boardContainer');
+            const statuses = ['Rojo', 'Amarillo', 'Verde', 'Entregado'];
+            let html = '';
+            statuses.forEach(st => {
+                const filtered = lotes.filter(l => l.status === st);
+                let colorClass = '';
+                if (st === 'Rojo') colorClass = 'col-red';
+                else if (st === 'Amarillo') colorClass = 'col-yellow';
+                else if (st === 'Verde') colorClass = 'col-green';
+                else if (st === 'Entregado') colorClass = 'col-delivered';
+                
+                const statusLabel = st;
+                html += `<div class="column ${colorClass}" 
+                              ondragover="permitirSoltar(event)" 
+                              ondrop="soltarTarjeta(event)" 
+                              ondragleave="salirColumna(event)">
+                    <div class="column-header">
+                        <span class="status-label">${statusLabel}</span>
+                        <span style="font-size:0.7rem; opacity:0.5;">(${filtered.length})</span>
+                    </div>`;
+                if (filtered.length === 0) {
+                    html += `<div style="color:rgba(255,255,255,0.3); text-align:center; padding:1.2rem 0; font-size:0.8rem;">Sin lotes</div>`;
+                } else {
+                    filtered.forEach(l => {
+                        const dias = getDiasAtraso(l.id);
+                        const extra = getAdditionalLight(l.status, dias);
+                        const prodCount = getProductosByLote(l.id).length;
+
+                        let folioDisplay = '';
+                        if (l.folio) {
+                            folioDisplay = `<span class="folio-tag"><i class="fas fa-tag"></i> ${l.folio}</span>`;
+                        } else {
+                            folioDisplay = `<span class="sin-folio"><i class="fas fa-circle" style="color:#a0aec0; font-size:0.5rem;"></i> Sin folio</span>`;
+                        }
+
+                        let actionBtn = '';
+                        if (l.status === 'Rojo' && !l.folio) {
+                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); openAsignarFolioModal(${l.id})"><i class="fas fa-tag"></i> Asignar folio</button></div>`;
+                        } else if (l.status === 'Amarillo') {
+                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-success btn-sm" onclick="event.stopPropagation(); openLiberarModal(${l.id})"><i class="fas fa-check-double"></i> Liberar folio</button></div>`;
+                        } else if (l.status === 'Verde') {
+                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-gray btn-sm" onclick="event.stopPropagation(); openEntregarModal(${l.id})"><i class="fas fa-box"></i> Marcar como Entregado</button></div>`;
+                        }
+
+                        let retrasoHtml = '';
+                        if (extra) {
+                            retrasoHtml = `<div class="retraso-indicator"><span class="light-blue"></span> Retraso</div>`;
+                        }
+
+                        html += `<div class="folio-card" 
+                                   draggable="true" 
+                                   ondragstart="iniciarDrag(event, ${l.id})" 
+                                   ondragend="terminarDrag(event)"
+                                   onclick="verDetalleLote(${l.id})">
+                            <div class="folio-id">
+                                ${folioDisplay}
+                                <small>${prodCount} art.</small>
+                            </div>
+                            <div class="lote-info">
+                                <span><i class="fas fa-box"></i> Lote #${l.id}</span>
+                                <span><i class="fas fa-clock"></i> ${dias} días</span>
+                            </div>
+                            ${retrasoHtml}
+                            <div class="responsable"><i class="fas fa-user-tie"></i> ${getResponsable(st)}</div>
+                            ${l.fechaEntrega ? `<div class="entrega-info"><i class="fas fa-calendar-check"></i> Entregado: ${new Date(l.fechaEntrega).toLocaleDateString()}</div>` : ''}
+                            ${actionBtn}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+            board.innerHTML = html;
+            actualizarBadge();
+        }
+
+        // ========== RENDER LISTA ==========
+        function renderList() {
+            const rows = getFilteredRows();
+
+            const tbody = document.getElementById('tableBody');
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">No hay productos con esos filtros</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            rows.forEach(p => {
+                const st = getStatus(p.loteId);
+                const folio = getFolio(p.loteId) || '—';
+                const isEditing = (editingRowId === p.id);
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+
+                if (isEditing) {
+                    html += `<tr class="editing" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>
+                            <select id="edit-lote-${p.id}">
+                                ${lotes.map(l => `<option value="${l.id}" ${l.id === p.loteId ? 'selected' : ''}>Lote #${l.id} ${l.folio ? '· '+l.folio : ''}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td><input type="text" id="edit-coma-${p.id}" value="${p.coma}"></td>
+                        <td><input type="number" id="edit-piezas-${p.id}" value="${p.piezas}"></td>
+                        <td><input type="text" id="edit-desc-${p.id}" value="${p.desc}"></td>
+                        <td><input type="text" id="edit-empaque-${p.id}" value="${p.empaque}"></td>
+                        <td><input type="text" id="edit-capacidad-${p.id}" value="${p.capacidad}"></td>
+                        <td><input type="text" id="edit-motivo-${p.id}" value="${p.motivo}"></td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—'}</td>
+                        <td>${extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—'}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon save" onclick="guardarEdicion(${p.id})" title="Guardar"><i class="fas fa-check"></i></button>
+                                <button class="btn-icon cancel" onclick="cancelarEdicion(${p.id})" title="Cancelar"><i class="fas fa-times"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                } else {
+                    const retrasoDisplay = extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—';
+                    const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                    
+                    html += `<tr ondblclick="iniciarEdicion(${p.id})" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>Lote #${p.loteId}</td>
+                        <td>${p.coma}</td>
+                        <td>${p.piezas}</td>
+                        <td>${p.desc}</td>
+                        <td>${p.empaque}</td>
+                        <td>${p.capacidad}</td>
+                        <td>${p.motivo}</td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${entrega}</td>
+                        <td>${retrasoDisplay}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon edit" onclick="iniciarEdicion(${p.id})" title="Editar (doble clic)"><i class="fas fa-pen"></i></button>
+                                <button class="btn-icon danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ========== FUNCIONES DE EDICIÓN Y ELIMINACIÓN ==========
+        function iniciarEdicion(id) {
+            if (editingRowId !== null && editingRowId !== id) {
+                cancelarEdicion(editingRowId);
+            }
+            editingRowId = id;
+            renderList();
+            setTimeout(() => {
+                const firstInput = document.getElementById(`edit-coma-${id}`);
+                if (firstInput) firstInput.focus();
+            }, 50);
+        }
+
+        function guardarEdicion(id) {
+            const prod = productos.find(p => p.id === id);
+            if (!prod) return;
+
+            const nuevoLoteId = parseInt(document.getElementById(`edit-lote-${id}`)?.value);
+            const nuevaComa = document.getElementById(`edit-coma-${id}`)?.value.trim();
+            const nuevasPiezas = parseInt(document.getElementById(`edit-piezas-${id}`)?.value) || 0;
+            const nuevaDesc = document.getElementById(`edit-desc-${id}`)?.value.trim() || 'Sin descripción';
+            const nuevoEmpaque = document.getElementById(`edit-empaque-${id}`)?.value.trim() || '—';
+            const nuevaCapacidad = document.getElementById(`edit-capacidad-${id}`)?.value.trim() || '—';
+            const nuevoMotivo = document.getElementById(`edit-motivo-${id}`)?.value.trim() || '—';
+
+            if (!nuevaComa) {
+                alert('El campo COMA no puede estar vacío');
+                return;
+            }
+
+            if (!getLote(nuevoLoteId)) {
+                alert('El lote seleccionado no existe');
+                return;
+            }
+
+            if (prod.loteId !== nuevoLoteId) {
+                prod.loteId = nuevoLoteId;
+            }
+
+            prod.coma = nuevaComa;
+            prod.piezas = nuevasPiezas;
+            prod.desc = nuevaDesc;
+            prod.empaque = nuevoEmpaque;
+            prod.capacidad = nuevaCapacidad;
+            prod.motivo = nuevoMotivo;
+            prod.fechaRegistro = prod.fechaRegistro || new Date().toISOString();
+
+            editingRowId = null;
+            aplicarFiltros();
+            renderBoard();
+        }
+
+        function cancelarEdicion(id) {
+            if (editingRowId === id) {
+                editingRowId = null;
+                renderList();
+            }
+        }
+
+        function eliminarProducto(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+            
+            const index = productos.findIndex(p => p.id === id);
+            if (index === -1) return;
+            
+            const prod = productos[index];
+            const loteId = prod.loteId;
+            productos.splice(index, 1);
+            
+            const productosEnLote = getProductosByLote(loteId);
+            if (productosEnLote.length === 0) {
+                if (confirm(`El lote #${loteId} se ha quedado sin productos. ¿Deseas eliminar también el lote?`)) {
+                    const loteIndex = lotes.findIndex(l => l.id === loteId);
+                    if (loteIndex !== -1) {
+                        lotes.splice(loteIndex, 1);
+                    }
+                }
+            }
+            
+            if (editingRowId === id) editingRowId = null;
+            aplicarFiltros();
+            renderBoard();
+        }
+
+        // ========== VER DETALLE DE LOTE (MODAL) ==========
+        function verDetalleLote(loteId) {
+            const items = getProductosByLote(loteId);
+            if (items.length === 0) return;
+            const st = getStatus(loteId);
+            const l = getLote(loteId);
+            const folio = l.folio || 'Sin folio';
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-box"></i> ${folio} · Lote #${loteId} · ${st}</h2>
+                    <div style="max-height:300px; overflow-y:auto; margin-top:1rem;">
+                        <table style="min-width:auto; width:100%; font-size:0.8rem; color:#d0d8e8;">
+                            <thead><tr><th style="color:#8a9ab0;">COMA</th><th style="color:#8a9ab0;">Piezas</th><th style="color:#8a9ab0;">Descripción</th><th style="color:#8a9ab0;">Motivo</th></tr></thead>
+                            <tbody>`;
+            items.forEach(p => {
+                html += `<tr><td>${p.coma}</td><td>${p.piezas}</td><td>${p.desc}</td><td>${p.motivo}</td></tr>`;
+            });
+            html += `</tbody></table></div>
+                    <div class="modal-actions"><button class="btn close-btn" onclick="cerrarModal()">Cerrar</button></div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        function cerrarModal() { document.getElementById('modalContainer').innerHTML = ''; }
+
+        // ========== AGREGAR PRODUCTO A LOTE ==========
+        function openAgregarProductoModal() {
+            let loteOptions = lotes.map(l =>
+                `<option value="${l.id}">Lote #${l.id} ${l.folio ? '· '+l.folio : ''} (${l.status})</option>`).join('');
+            if (loteOptions) loteOptions = `<option value="">Seleccionar lote existente</option>` + loteOptions;
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-plus"></i> Agregar producto a lote</h2>
+                    <label>Seleccionar lote (o dejar vacío para crear nuevo)</label>
+                    <select id="loteSelect">${loteOptions}</select>
+                    <div style="margin:0.5rem 0;"><button class="btn" onclick="crearNuevoLoteEnModal()" style="font-size:0.7rem;">+ Crear nuevo lote</button></div>
+                    <div id="nuevoLoteContainer" style="display:none;">
+                        <label>Nuevo lote ID (automático)</label>
+                        <input type="text" id="nuevoLoteId" value="Nuevo Lote #${nextLoteId}" disabled>
+                    </div>
+                    <label>COMA</label><input type="text" id="prodComa" placeholder="C-001">
+                    <label>Piezas</label><input type="number" id="prodPiezas" placeholder="100">
+                    <label>Descripción</label><input type="text" id="prodDesc" placeholder="Descripción">
+                    <label>Empaque</label><input type="text" id="prodEmpaque" placeholder="Caja">
+                    <label>Capacidad</label><input type="text" id="prodCapacidad" placeholder="500 pzs">
+                    <label>Motivo</label><input type="text" id="prodMotivo" placeholder="Donación">
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="confirmarAgregarProducto()">Agregar</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        function crearNuevoLoteEnModal() {
+            const container = document.getElementById('nuevoLoteContainer');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                document.getElementById('nuevoLoteId').value = `Nuevo Lote #${nextLoteId}`;
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function confirmarAgregarProducto() {
+            const loteSelect = document.getElementById('loteSelect');
+            let loteId = loteSelect.value;
+            const crearNuevo = document.getElementById('nuevoLoteContainer').style.display === 'block';
+            if (crearNuevo || !loteId) {
+                loteId = nextLoteId++;
+                lotes.push({ id: loteId, folio: null, status: 'Rojo', fechaCreacion: new Date().toISOString(),
+                    fechaEntrega: null });
+            } else {
+                loteId = parseInt(loteId);
+            }
+            const coma = document.getElementById('prodComa').value.trim();
+            const piezas = parseInt(document.getElementById('prodPiezas').value) || 0;
+            const desc = document.getElementById('prodDesc').value.trim() || 'Sin descripción';
+            const empaque = document.getElementById('prodEmpaque').value.trim() || '—';
+            const capacidad = document.getElementById('prodCapacidad').value.trim() || '—';
+            const motivo = document.getElementById('prodMotivo').value.trim() || '—';
+            if (!coma) { alert('El campo COMA es obligatorio'); return; }
+            productos.push({
+                id: nextProdId++,
+                loteId: loteId,
+                coma: coma,
+                piezas: piezas,
+                desc: desc,
+                empaque: empaque,
+                capacidad: capacidad,
+                motivo: motivo,
+                fechaRegistro: new Date().toISOString()
+            });
+            cerrarModal();
+            aplicarFiltros();
+            renderBoard();
+        }
+
+        // ========== ASIGNAR FOLIO ==========
+        function openAsignarFolioModal(loteIdSeleccionado = null) {
+            let rojosSinFolio = lotes.filter(l => l.status === 'Rojo' && !l.folio);
+            if (rojosSinFolio.length === 0) {
+                alert('No hay lotes en estado Rojo sin folio para asignar.');
+                return;
+            }
+            if (loteIdSeleccionado) {
+                rojosSinFolio = rojosSinFolio.filter(l => l.id === loteIdSeleccionado);
+                if (rojosSinFolio.length === 0) {
+                    alert('Ese lote ya no está en Rojo sin folio o no existe.');
+                    return;
+                }
+            }
+            let options = rojosSinFolio.map(l =>
+                `<option value="${l.id}">Lote #${l.id} (${getProductosByLote(l.id).length} art.)</option>`).join('');
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-tag"></i> Asignar folio al lote (Rojo → Amarillo)</h2>
+                    <p style="color:#8a9ab0; margin-bottom:0.5rem;">El folio se asignará a todos los productos de este lote.</p>
+                    <label>Seleccionar lote en Rojo sin folio</label>
+                    <select id="asignarLoteSelect">${options}</select>
+                    <label>Nuevo folio (ej. F-001)</label>
+                    <input type="text" id="nuevoFolioInput" placeholder="F-XXX" value="F-${String(lotes.filter(l=>l.status==='Rojo' && !l.folio).length+1).padStart(3,'0')}">
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
+                        <button class="btn btn-warning" onclick="confirmarAsignarFolio()">Asignar y pasar a Amarillo</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        function confirmarAsignarFolio() {
+            const loteId = parseInt(document.getElementById('asignarLoteSelect').value);
+            const nuevoFolio = document.getElementById('nuevoFolioInput').value.trim();
+            if (!nuevoFolio) { alert('Ingrese un folio'); return; }
+            if (lotes.some(l => l.folio === nuevoFolio)) {
+                alert('Ese folio ya está asignado a otro lote.');
+                return;
+            }
+            const l = getLote(loteId);
+            if (!l) return;
+            l.folio = nuevoFolio;
+            l.status = 'Amarillo';
+            l.fechaCreacion = new Date().toISOString();
+            cerrarModal();
+            renderBoard();
+            aplicarFiltros();
+        }
+
+        // ========== LIBERAR FOLIO ==========
+        function openLiberarModal(loteIdSeleccionado = null) {
+            let amarillos = lotes.filter(l => l.status === 'Amarillo');
+            if (amarillos.length === 0) {
+                alert('No hay lotes en estado Amarillo para liberar.');
+                return;
+            }
+            if (loteIdSeleccionado) {
+                amarillos = amarillos.filter(l => l.id === loteIdSeleccionado);
+                if (amarillos.length === 0) {
+                    alert('Ese lote ya no está en Amarillo o no existe.');
+                    return;
+                }
+            }
+            let options = amarillos.map(l =>
+                `<option value="${l.id}">Lote #${l.id} ${l.folio ? '· '+l.folio : ''} (${getProductosByLote(l.id).length} art.)</option>`
+                ).join('');
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-check-double"></i> Liberar folio (Amarillo → Verde)</h2>
+                    <label>Seleccionar lote en Amarillo</label>
+                    <select id="liberarLoteSelect">${options}</select>
+                    <label>Fecha de entrega a donataria</label>
+                    <input type="date" id="fechaEntregaInput">
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
+                        <button class="btn btn-success" onclick="confirmarLiberar()">Liberar (Verde)</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        function confirmarLiberar() {
+            const loteId = parseInt(document.getElementById('liberarLoteSelect').value);
+            const fechaEntrega = document.getElementById('fechaEntregaInput').value;
+            const l = getLote(loteId);
+            if (!l) return;
+            l.status = 'Verde';
+            l.fechaCreacion = new Date().toISOString();
+            l.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+            cerrarModal();
+            renderBoard();
+            aplicarFiltros();
+        }
+
+        // ========== MARCAR COMO ENTREGADO ==========
+        function openEntregarModal(loteIdSeleccionado = null) {
+            let verdes = lotes.filter(l => l.status === 'Verde');
+            if (verdes.length === 0) {
+                alert('No hay lotes en estado Verde para marcar como entregados.');
+                return;
+            }
+            if (loteIdSeleccionado) {
+                verdes = verdes.filter(l => l.id === loteIdSeleccionado);
+                if (verdes.length === 0) {
+                    alert('Ese lote ya no está en Verde o no existe.');
+                    return;
+                }
+            }
+            let options = verdes.map(l =>
+                `<option value="${l.id}">Lote #${l.id} ${l.folio ? '· '+l.folio : ''} (${getProductosByLote(l.id).length} art.)</option>`
+                ).join('');
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-box"></i> Marcar lote como Entregado (Verde → Entregado)</h2>
+                    <label>Seleccionar lote en Verde</label>
+                    <select id="entregarLoteSelect">${options}</select>
+                    <label>Fecha de entrega a donataria</label>
+                    <input type="date" id="entregarFechaInput">
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
+                        <button class="btn btn-gray" onclick="confirmarEntregar()">Marcar como Entregado</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        function confirmarEntregar() {
+            const loteId = parseInt(document.getElementById('entregarLoteSelect').value);
+            const fechaEntrega = document.getElementById('entregarFechaInput').value;
+            const l = getLote(loteId);
+            if (!l) return;
+            l.status = 'Entregado';
+            l.fechaCreacion = new Date().toISOString();
+            l.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+            cerrarModal();
+            renderBoard();
+            aplicarFiltros();
+        }
+
+        // ========== INICIALIZAR ==========
+        function inicializarDatos() {
+            const l1 = { id: nextLoteId++, folio: null, status: 'Rojo', fechaCreacion: new Date(Date.now() - 2 * 24 *
+                    3600000).toISOString(), fechaEntrega: null };
+            const l2 = { id: nextLoteId++, folio: 'F-001', status: 'Amarillo', fechaCreacion: new Date(Date.now() - 3 *
+                    24 * 3600000).toISOString(), fechaEntrega: null };
+            const l3 = { id: nextLoteId++, folio: 'F-002', status: 'Verde', fechaCreacion: new Date(Date.now() - 1 * 24 *
+                    3600000).toISOString(), fechaEntrega: new Date(Date.now() - 0.5 * 24 * 3600000).toISOString() };
+            const l4 = { id: nextLoteId++, folio: null, status: 'Rojo', fechaCreacion: new Date(Date.now() - 5 * 24 *
+                    3600000).toISOString(), fechaEntrega: null };
+            const l5 = { id: nextLoteId++, folio: 'F-003', status: 'Amarillo', fechaCreacion: new Date(Date.now() - 4 *
+                    24 * 3600000).toISOString(), fechaEntrega: null };
+            const l6 = { id: nextLoteId++, folio: 'F-004', status: 'Entregado', fechaCreacion: new Date(Date.now() - 0.5 *
+                    24 * 3600000).toISOString(), fechaEntrega: new Date(Date.now() - 0.3 * 24 * 3600000).toISOString() };
+            lotes = [l1, l2, l3, l4, l5, l6];
+
+            productos = [
+                { id: nextProdId++, loteId: 1, coma: 'C-100', piezas: 120, desc: 'Tornillo M8', empaque: 'Caja 500',
+                    capacidad: '500 pzs', motivo: 'Sobrestock', fechaRegistro: new Date(Date.now() - 2 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 1, coma: 'C-101', piezas: 45, desc: 'Tuerca M8', empaque: 'Bolsa 100',
+                    capacidad: '100 pzs', motivo: 'Cambio modelo', fechaRegistro: new Date(Date.now() - 2 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 2, coma: 'C-202', piezas: 8, desc: 'Sensor óptico', empaque: 'Unidad',
+                    capacidad: '1 pz', motivo: 'Pedido especial', fechaRegistro: new Date(Date.now() - 3 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 3, coma: 'C-305', piezas: 60, desc: 'Resistencia 10K', empaque: 'Tubo 50',
+                    capacidad: '50 pzs', motivo: 'Donación', fechaRegistro: new Date(Date.now() - 1 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 4, coma: 'C-112', piezas: 200, desc: 'Arandela plana', empaque: 'Bolsa 200',
+                    capacidad: '200 pzs', motivo: 'Excedente', fechaRegistro: new Date(Date.now() - 5 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 5, coma: 'C-077', piezas: 15, desc: 'Válvula solenoide', empaque: 'Caja 5',
+                    capacidad: '5 pzs', motivo: 'Repuesto', fechaRegistro: new Date(Date.now() - 4 * 24 * 3600000)
+                        .toISOString() },
+                { id: nextProdId++, loteId: 6, coma: 'C-009', piezas: 32, desc: 'Cable UTP', empaque: 'Roll 30m',
+                    capacidad: '30 m', motivo: 'Donación', fechaRegistro: new Date(Date.now() - 0.5 * 24 * 3600000)
+                        .toISOString() },
+            ];
+        }
+
+        // ========== EVENTOS ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            inicializarDatos();
+            
+            document.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+            
+            document.addEventListener('dragend', function(e) {
+                if (dragGhost) {
+                    dragGhost.remove();
+                    dragGhost = null;
+                }
+                document.querySelectorAll('.folio-card.dragging').forEach(c => c.classList.remove('dragging'));
+                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+                draggedCardId = null;
+            });
+
+            actualizarOpcionesFiltros();
+            renderBoard();
+            renderList();
+
+            const tabs = document.querySelectorAll('.tab-btn');
+            const contents = { tabBoard: document.getElementById('tabBoard'), tabList: document.getElementById(
+                    'tabList') };
+            tabs.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    tabs.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const target = this.dataset.tab;
+                    Object.keys(contents).forEach(key => {
+                        contents[key].classList.toggle('active', key === target);
+                    });
+                    if (target === 'tabList') {
+                        editingRowId = null;
+                        actualizarOpcionesFiltros();
+                        renderList();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
