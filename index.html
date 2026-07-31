@@ -2,11 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
-    <title>Tablero de Control para Donaciones</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=no">
+    <title>Semáforo de Donaciones</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
+        /* ========== TODOS LOS ESTILOS IGUALES ========== */
         * {
             margin: 0;
             padding: 0;
@@ -21,6 +22,81 @@
             align-items: center;
             padding: 1.5rem;
         }
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-box {
+            background: rgba(30, 40, 60, 0.85);
+            backdrop-filter: blur(18px);
+            border-radius: 2.5rem;
+            padding: 2.5rem;
+            max-width: 420px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6);
+            color: #e8edf5;
+        }
+        .login-box h2 {
+            text-align: center;
+            font-weight: 400;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #e8edf5;
+        }
+        .login-box .subtitle {
+            text-align: center;
+            color: #8a9ab0;
+            font-size: 0.85rem;
+            margin-bottom: 1.8rem;
+        }
+        .login-box label {
+            display: block;
+            margin: 0.8rem 0 0.2rem;
+            font-size: 0.8rem;
+            color: #8a9ab0;
+        }
+        .login-box input, .login-box select {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.20);
+            color: #e8edf5;
+            font-size: 0.95rem;
+        }
+        .login-box input:focus, .login-box select:focus {
+            outline: 2px solid rgba(66, 153, 225, 0.4);
+        }
+        .login-box .login-actions {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1.8rem;
+            flex-wrap: wrap;
+        }
+        .login-box .login-actions .btn {
+            flex: 1;
+            padding: 0.6rem 1.5rem;
+            text-align: center;
+            min-width: 100px;
+        }
+        .login-box .login-error {
+            color: #fc8181;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            min-height: 1.2rem;
+        }
         .glass-app {
             max-width: 1400px;
             width: 100%;
@@ -31,7 +107,9 @@
             padding: 1.8rem 2rem 2.5rem;
             box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.10);
+            display: none;
         }
+        .glass-app.visible { display: block; }
         .header {
             display: flex;
             flex-wrap: wrap;
@@ -53,6 +131,32 @@
             color: #f7d44a;
             filter: drop-shadow(0 0 6px #f7d44a88);
         }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .user-info {
+            color: #8a9ab0;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .user-info .role-badge {
+            background: rgba(99, 179, 237, 0.15);
+            padding: 0.2rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            color: #63b3ed;
+            border: 1px solid rgba(99, 179, 237, 0.2);
+        }
+        .user-info .role-badge.admin {
+            background: rgba(72, 187, 120, 0.15);
+            color: #68d391;
+            border-color: rgba(72, 187, 120, 0.2);
+        }
         .badge-folio {
             background: rgba(255, 255, 255, 0.08);
             padding: 0.5rem 1.2rem;
@@ -61,6 +165,48 @@
             backdrop-filter: blur(4px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #c8d2ec;
+        }
+        .btn-logout {
+            background: rgba(255, 70, 70, 0.15);
+            border: 1px solid rgba(255, 70, 70, 0.20);
+            color: #fc8181;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: 0.15s;
+        }
+        .btn-logout:hover { background: rgba(255, 70, 70, 0.25); }
+        .session-timer {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            background: rgba(30, 40, 60, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 2rem;
+            padding: 0.4rem 1rem;
+            color: #8a9ab0;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+        .session-timer .timer-value {
+            font-weight: 600;
+            color: #e8edf5;
+            min-width: 2.5rem;
+            text-align: center;
+        }
+        .session-timer .timer-value.warning {
+            color: #fc8181;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        .session-timer .timer-icon { color: #63b3ed; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
         .tabs {
             display: flex;
@@ -84,9 +230,7 @@
             border: 1px solid transparent;
             border-bottom: 3px solid transparent;
         }
-        .tab-btn i {
-            margin-right: 6px;
-        }
+        .tab-btn i { margin-right: 6px; }
         .tab-btn.active {
             color: #e8edf5;
             background: rgba(255, 255, 255, 0.05);
@@ -95,26 +239,17 @@
             backdrop-filter: blur(6px);
             box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
         }
-        .tab-btn:hover {
-            background: rgba(255, 255, 255, 0.04);
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.04); }
+        .tab-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
-        .tab-content {
-            display: none;
-            animation: fade 0.25s ease;
-        }
-        .tab-content.active {
-            display: block;
-        }
+        .tab-content { display: none; animation: fade 0.25s ease; }
+        .tab-content.active { display: block; }
         @keyframes fade {
-            0% {
-                opacity: 0.3;
-            }
-            100% {
-                opacity: 1;
-            }
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
         }
-
-        /* BOARD */
         .board {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -129,6 +264,7 @@
             backdrop-filter: blur(6px);
             transition: 0.2s;
             min-height: 200px;
+            touch-action: none;
         }
         .column.dragover {
             border-color: #6a8fc0;
@@ -151,7 +287,6 @@
             background: rgba(160, 174, 192, 0.12);
             border-color: rgba(160, 174, 192, 0.18);
         }
-
         .column-header {
             color: #e8edf5;
             font-weight: 400;
@@ -185,7 +320,6 @@
             background: rgba(160, 174, 192, 0.20);
             border-color: rgba(160, 174, 192, 0.25);
         }
-
         .column-header .status-label {
             font-weight: 600;
             letter-spacing: 1px;
@@ -196,7 +330,6 @@
         .col-yellow .column-header .status-label { color: #f6e05e; }
         .col-green .column-header .status-label { color: #9ae6b4; }
         .col-delivered .column-header .status-label { color: #cbd5e0; }
-
         .folio-card {
             background: #ffffff !important;
             backdrop-filter: none;
@@ -209,10 +342,13 @@
             transition: 0.15s;
             cursor: grab;
             color: #0b1e3a;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            position: relative;
         }
-        .folio-card:active {
-            cursor: grabbing;
-        }
+        .folio-card:active { cursor: grabbing; }
         .folio-card:hover {
             background: #f5f7fa !important;
             transform: scale(1.02);
@@ -222,7 +358,68 @@
             opacity: 0.4;
             transform: scale(0.95);
         }
-
+        .folio-card.touch-dragging {
+            opacity: 0.6;
+            transform: scale(0.98);
+        }
+        .folio-card.readonly {
+            cursor: default;
+            opacity: 0.85;
+        }
+        .folio-card.readonly:hover {
+            transform: none;
+            background: #ffffff !important;
+        }
+        .btn-ver {
+            background: rgba(11, 30, 58, 0.08);
+            border: 1px solid rgba(11, 30, 58, 0.12);
+            color: #0b1e3a;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            font-size: 0.6rem;
+            cursor: pointer;
+            transition: 0.15s;
+            backdrop-filter: blur(2px);
+            margin-top: 4px;
+            display: inline-block;
+            position: relative;
+            z-index: 10;
+            touch-action: manipulation;
+        }
+        .btn-ver:hover { background: rgba(11, 30, 58, 0.15); }
+        .btn-ver i {
+            margin-right: 3px;
+            font-size: 0.55rem;
+        }
+        .folio-card .acciones-tarjeta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 4px;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+        .folio-card .acciones-tarjeta .btn-sm {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.6rem;
+            pointer-events: auto;
+            touch-action: manipulation;
+            position: relative;
+            z-index: 10;
+        }
+        .folio-card .acciones-tarjeta .btn-ver {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.6rem;
+            pointer-events: auto;
+            touch-action: manipulation;
+            position: relative;
+            z-index: 10;
+        }
+        .folio-card .btn, .folio-card .btn-ver, .folio-card button {
+            touch-action: manipulation !important;
+            pointer-events: auto !important;
+        }
         .folio-id {
             font-weight: 700;
             color: #0b1e3a;
@@ -255,7 +452,6 @@
             border-radius: 30px;
             color: #1a3050;
         }
-
         .lote-info {
             display: flex;
             flex-wrap: wrap;
@@ -269,7 +465,6 @@
             width: 14px;
             color: #1a3050;
         }
-
         .retraso-indicator {
             display: inline-flex;
             align-items: center;
@@ -287,7 +482,6 @@
             box-shadow: 0 0 10px rgba(26, 48, 80, 0.35);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
         .responsable {
             font-size: 0.65rem;
             background: #e8ecf0;
@@ -297,7 +491,6 @@
             color: #0b1e3a;
             margin-top: 4px;
         }
-
         .entrega-info {
             font-size: 0.65rem;
             color: #3a4a5a;
@@ -307,33 +500,24 @@
             margin-right: 4px;
             color: #1a3050;
         }
-
         .folio-card .btn-warning {
             background: #ecc94b;
             border-color: #ecc94b;
             color: #1a2335;
         }
-        .folio-card .btn-warning:hover {
-            background: #d69e2e;
-        }
+        .folio-card .btn-warning:hover { background: #d69e2e; }
         .folio-card .btn-success {
             background: #48bb78;
             border-color: #48bb78;
             color: #fff;
         }
-        .folio-card .btn-success:hover {
-            background: #38a169;
-        }
+        .folio-card .btn-success:hover { background: #38a169; }
         .folio-card .btn-gray {
             background: #718096;
             border-color: #718096;
             color: #fff;
         }
-        .folio-card .btn-gray:hover {
-            background: #4a5568;
-        }
-
-        /* TABLA CON FILTROS EN ENCABEZADOS */
+        .folio-card .btn-gray:hover { background: #4a5568; }
         .table-wrap {
             overflow-x: auto;
             border-radius: 2rem;
@@ -391,10 +575,6 @@
             background: #1f2a3f;
             color: #e8edf5;
         }
-        th select.filter-select option:checked {
-            background: #2a4a7a;
-        }
-
         td {
             padding: 0.5rem 0.4rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -409,18 +589,14 @@
             background: #1a3050;
             box-shadow: 0 0 8px rgba(26, 48, 80, 0.25);
         }
-        .table-wrap tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
-        }
+        .table-wrap tr:hover td { background: rgba(255, 255, 255, 0.02); }
         .table-wrap tr td .acciones {
             display: flex;
             gap: 0.3rem;
             opacity: 0.5;
             transition: 0.2s;
         }
-        .table-wrap tr:hover td .acciones {
-            opacity: 1;
-        }
+        .table-wrap tr:hover td .acciones { opacity: 1; }
         .table-wrap tr td .acciones .btn-icon {
             background: transparent;
             border: none;
@@ -443,12 +619,13 @@
             color: #63b3ed;
             background: rgba(66, 153, 225, 0.15);
         }
-
-        .table-wrap tr.editing td {
-            background: rgba(66, 153, 225, 0.08);
+        .table-wrap tr td .acciones .btn-icon.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
         }
-        .table-wrap tr.editing td input,
-        .table-wrap tr.editing td select {
+        .table-wrap tr.editing td { background: rgba(66, 153, 225, 0.08); }
+        .table-wrap tr.editing td input, .table-wrap tr.editing td select {
             background: rgba(0, 0, 0, 0.15);
             border: 1px solid rgba(66, 153, 225, 0.3);
             border-radius: 0.3rem;
@@ -458,25 +635,19 @@
             width: 100%;
             min-width: 45px;
         }
-        .table-wrap tr.editing td input:focus,
-        .table-wrap tr.editing td select:focus {
+        .table-wrap tr.editing td input:focus, .table-wrap tr.editing td select:focus {
             outline: 2px solid rgba(66, 153, 225, 0.4);
         }
-        .table-wrap tr.editing td .btn-icon.save {
-            color: #68d391;
-        }
+        .table-wrap tr.editing td .btn-icon.save { color: #68d391; }
         .table-wrap tr.editing td .btn-icon.save:hover {
             color: #48bb78;
             background: rgba(72, 187, 120, 0.15);
         }
-        .table-wrap tr.editing td .btn-icon.cancel {
-            color: #fc8181;
-        }
+        .table-wrap tr.editing td .btn-icon.cancel { color: #fc8181; }
         .table-wrap tr.editing td .btn-icon.cancel:hover {
             color: #e53e3e;
             background: rgba(229, 62, 62, 0.15);
         }
-
         .btn {
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -488,31 +659,28 @@
             transition: 0.15s;
             font-size: 0.8rem;
         }
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.12);
+        .btn:hover { background: rgba(255, 255, 255, 0.12); }
+        .btn:disabled, .btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
         }
         .btn-primary {
             background: rgba(66, 153, 225, 0.25);
             border-color: rgba(66, 153, 225, 0.30);
         }
-        .btn-primary:hover {
-            background: rgba(66, 153, 225, 0.35);
-        }
+        .btn-primary:hover { background: rgba(66, 153, 225, 0.35); }
         .btn-success {
             background: rgba(72, 187, 120, 0.25);
             border-color: rgba(72, 187, 120, 0.30);
         }
-        .btn-success:hover {
-            background: rgba(72, 187, 120, 0.35);
-        }
+        .btn-success:hover { background: rgba(72, 187, 120, 0.35); }
         .btn-warning {
             background: rgba(236, 201, 75, 0.25);
             border-color: rgba(236, 201, 75, 0.30);
             color: #f6e05e;
         }
-        .btn-warning:hover {
-            background: rgba(236, 201, 75, 0.35);
-        }
+        .btn-warning:hover { background: rgba(236, 201, 75, 0.35); }
         .btn-sm {
             padding: 0.2rem 0.8rem;
             font-size: 0.7rem;
@@ -521,35 +689,56 @@
             background: rgba(160, 174, 192, 0.15);
             border-color: rgba(160, 174, 192, 0.20);
         }
-        .btn-gray:hover {
-            background: rgba(160, 174, 192, 0.25);
-        }
+        .btn-gray:hover { background: rgba(160, 174, 192, 0.25); }
         .btn-success-solid {
             background: #48bb78;
             border-color: #48bb78;
             color: #fff;
         }
-        .btn-success-solid:hover {
-            background: #38a169;
-        }
+        .btn-success-solid:hover { background: #38a169; }
         .btn-json-export {
             background: rgba(255, 215, 0, 0.20);
             border-color: rgba(255, 215, 0, 0.30);
             color: #f6e05e;
         }
-        .btn-json-export:hover {
-            background: rgba(255, 215, 0, 0.30);
-        }
+        .btn-json-export:hover { background: rgba(255, 215, 0, 0.30); }
         .btn-json-import {
             background: rgba(255, 215, 0, 0.15);
             border-color: rgba(255, 215, 0, 0.20);
             color: #f6e05e;
         }
-        .btn-json-import:hover {
-            background: rgba(255, 215, 0, 0.25);
+        .btn-json-import:hover { background: rgba(255, 215, 0, 0.25); }
+        .btn-sort {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e8edf5;
+            transition: 0.2s;
         }
-
-        /* Drop zone para arrastrar archivos */
+        .btn-sort:hover { background: rgba(255, 255, 255, 0.12); }
+        .btn-sort.activo {
+            background: rgba(72, 187, 120, 0.20);
+            border-color: rgba(72, 187, 120, 0.30);
+            color: #68d391;
+            box-shadow: 0 0 12px rgba(72, 187, 120, 0.15);
+        }
+        .btn-sort.activo:hover {
+            background: rgba(72, 187, 120, 0.30);
+        }
+        .btn-sort.activo.folio {
+            background: rgba(66, 153, 225, 0.20);
+            border-color: rgba(66, 153, 225, 0.30);
+            color: #63b3ed;
+        }
+        .btn-sort.activo.lote {
+            background: rgba(236, 201, 75, 0.20);
+            border-color: rgba(236, 201, 75, 0.30);
+            color: #f6e05e;
+        }
+        .btn-sort.activo.coma {
+            background: rgba(160, 174, 192, 0.20);
+            border-color: rgba(160, 174, 192, 0.30);
+            color: #cbd5e0;
+        }
         .drop-zone {
             border: 2px dashed rgba(255, 255, 255, 0.15);
             border-radius: 2rem;
@@ -569,13 +758,16 @@
             border-color: #6a8fc0;
             background: rgba(106, 143, 192, 0.10);
         }
+        .drop-zone.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
         .drop-zone i {
             font-size: 2rem;
             display: block;
             margin-bottom: 0.5rem;
         }
-
-        /* MODALES */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -588,6 +780,7 @@
             align-items: center;
             justify-content: center;
             z-index: 999;
+            padding: 1rem;
         }
         .modal-glass {
             background: rgba(30, 40, 60, 0.85);
@@ -595,17 +788,18 @@
             border-radius: 2.5rem;
             padding: 2rem;
             max-width: 700px;
-            width: 90%;
+            width: 100%;
             border: 1px solid rgba(255, 255, 255, 0.10);
             box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6);
             color: #e8edf5;
-            max-height: 80vh;
+            max-height: 90vh;
             overflow-y: auto;
         }
         .modal-glass h2 {
             margin-bottom: 1.5rem;
             font-weight: 400;
             color: #e8edf5;
+            font-size: 1.3rem;
         }
         .modal-glass label {
             display: block;
@@ -613,9 +807,7 @@
             font-size: 0.8rem;
             color: #8a9ab0;
         }
-        .modal-glass input,
-        .modal-glass select,
-        .modal-glass textarea {
+        .modal-glass input, .modal-glass select, .modal-glass textarea {
             width: 100%;
             padding: 0.5rem 1rem;
             border-radius: 30px;
@@ -624,9 +816,7 @@
             color: #e8edf5;
             font-size: 0.95rem;
         }
-        .modal-glass input:focus,
-        .modal-glass select:focus,
-        .modal-glass textarea:focus {
+        .modal-glass input:focus, .modal-glass select:focus, .modal-glass textarea:focus {
             outline: 2px solid rgba(66, 153, 225, 0.4);
         }
         .modal-glass textarea {
@@ -640,53 +830,267 @@
             justify-content: flex-end;
             flex-wrap: wrap;
         }
-        .modal-actions .btn {
-            padding: 0.5rem 2rem;
-        }
+        .modal-actions .btn { padding: 0.5rem 2rem; }
         .close-btn {
             background: rgba(255, 70, 70, 0.15);
             border-color: rgba(255, 70, 70, 0.20);
         }
-        .close-btn:hover {
-            background: rgba(255, 70, 70, 0.25);
+        .close-btn:hover { background: rgba(255, 70, 70, 0.25); }
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 90%;
+            pointer-events: none;
         }
-
+        .toast {
+            background: rgba(30, 40, 60, 0.95);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 1.5rem;
+            padding: 0.8rem 1.5rem;
+            color: #e8edf5;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: slideUp 0.3s ease;
+            pointer-events: auto;
+            max-width: 90vw;
+        }
+        .toast.success { border-color: rgba(72, 187, 120, 0.4); }
+        .toast.error { border-color: rgba(229, 62, 62, 0.4); }
+        .toast.info { border-color: rgba(66, 153, 225, 0.4); }
+        .toast i { margin-right: 8px; }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .drag-clone {
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            opacity: 0.9;
+            transform: rotate(-3deg) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-radius: 1.5rem;
+            background: #ffffff;
+            padding: 0.9rem 0.8rem;
+            border-left: 6px solid #0b1e3a;
+            border: 1px solid rgba(11, 30, 58, 0.15);
+            width: 220px;
+            transition: none;
+        }
+        .drag-clone .folio-id {
+            font-weight: 700;
+            color: #0b1e3a;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .drag-clone .folio-id small {
+            font-weight: 300;
+            font-size: 0.65rem;
+            background: #e8ecf0;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            color: #1a3050;
+        }
+        .drag-clone .folio-tag {
+            font-size: 0.95rem;
+            background: #e8ecf0;
+            padding: 0.05rem 0.7rem;
+            border-radius: 30px;
+            color: #0b1e3a;
+            border: 1px solid #b8c4ce;
+        }
+        .drag-clone .sin-folio {
+            font-size: 0.7rem;
+            color: #5a6a7a;
+            font-weight: 400;
+            background: #edf0f3;
+            padding: 0.05rem 0.7rem;
+            border-radius: 30px;
+        }
+        .drag-clone .lote-info {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.2rem 0.6rem;
+            margin: 0.1rem 0 0.1rem;
+            font-size: 0.6rem;
+            color: #3a4a5a;
+        }
+        .drag-clone .lote-info i {
+            width: 12px;
+            color: #1a3050;
+        }
+        .drag-clone .responsable {
+            font-size: 0.55rem;
+            background: #e8ecf0;
+            padding: 0.05rem 0.6rem;
+            border-radius: 40px;
+            display: inline-block;
+            color: #0b1e3a;
+            margin-top: 2px;
+        }
+        .drag-clone .retraso-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 2px;
+            font-size: 0.6rem;
+            color: #0b1e3a;
+        }
+        .drag-clone .retraso-indicator .light-blue {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #1a3050;
+            box-shadow: 0 0 8px rgba(26, 48, 80, 0.3);
+        }
+        .drag-clone .btn-ver, .drag-clone .acciones-tarjeta { display: none !important; }
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: #8a9ab0;
+            margin-left: 0.5rem;
+        }
+        .sync-status .sync-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #68d391;
+        }
+        .sync-status .sync-dot.syncing {
+            background: #f6e05e;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
+        .sync-status .sync-dot.error {
+            background: #fc8181;
+        }
+        .sync-status .sync-dot.realtime {
+            background: #63b3ed;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+        .sync-status .sync-dot.receiving {
+            background: #48bb78;
+            animation: pulse 0.3s ease-in-out infinite;
+        }
+        .sync-status .sync-dot.loading {
+            background: #f6ad55;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+        .sync-status .sync-dot.softsync {
+            background: #9f7aea;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
         @media (max-width: 700px) {
-            .glass-app {
-                padding: 1.2rem;
-            }
-            .header h1 {
-                font-size: 1.4rem;
-            }
-            .board {
-                grid-template-columns: 1fr;
-            }
-            .folio-id {
-                font-size: 1.1rem;
-            }
-            .folio-id .folio-tag {
-                font-size: 0.9rem;
-            }
+            .glass-app { padding: 1.2rem; }
+            .header h1 { font-size: 1.4rem; }
+            .board { grid-template-columns: 1fr; }
+            .folio-id { font-size: 1.1rem; }
+            .folio-id .folio-tag { font-size: 0.9rem; }
             th select.filter-select {
                 max-width: 60px;
                 font-size: 0.55rem;
                 padding: 0.1rem 0.2rem;
             }
-            th .th-label {
-                font-size: 0.55rem;
-            }
+            th .th-label { font-size: 0.55rem; }
             td {
                 font-size: 0.65rem;
                 padding: 0.25rem 0.15rem;
+            }
+            .modal-glass {
+                padding: 1.2rem;
+                border-radius: 1.5rem;
+            }
+            .modal-glass h2 { font-size: 1.1rem; }
+            .toast {
+                font-size: 0.8rem;
+                padding: 0.6rem 1rem;
+            }
+            .drag-clone {
+                width: 180px;
+                padding: 0.6rem 0.6rem;
+            }
+            .drag-clone .folio-id { font-size: 0.95rem; }
+            .login-box { padding: 1.5rem; }
+            .login-box h2 { font-size: 1.2rem; }
+            .header-right {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .session-timer {
+                bottom: 0.5rem;
+                left: 0.5rem;
+                font-size: 0.65rem;
+                padding: 0.3rem 0.7rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="glass-app">
+    <!-- LOGIN -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h2><i class="fas fa-traffic-light" style="color:#f7d44a;"></i> Tablero para Control de Donaciones</h2>
+            <p class="subtitle">Control de inventario · Folios de Donación</p>
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <label for="loginRole">Perfil</label>
+                <select id="loginRole">
+                    <option value="inventarios">Departamento de Inventarios</option>
+                    <option value="invitado">Invitado</option>
+                </select>
+                <div id="passwordContainer">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" placeholder="Ingresa la contraseña">
+                </div>
+                <div class="login-error" id="loginError"></div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary" style="flex:1;">Ingresar</button>
+                </div>
+                <div style="margin-top:1rem; text-align:center; font-size:0.7rem; color:#5a6a7a;">
+                    <span>Inventarios: </span><span style="color:#6a7a8a;">Inventarios2026</span>
+                    <span style="margin:0 0.5rem;">·</span>
+                    <span>Invitado: </span><span style="color:#6a7a8a;">sin contraseña</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div class="glass-app" id="appContainer">
         <div class="header">
-            <h1><i class="fas fa-traffic-light"></i> Tablero de Control para Donaciones</h1>
-            <span class="badge-folio" id="badgeFolio"><i class="fas fa-boxes"></i> 0 lotes</span>
+            <h1><i class="fas fa-traffic-light"></i> Tablero para Control de Folios de Donación</h1>
+            <div class="header-right">
+                <div class="user-info">
+                    <span id="userNameDisplay">Usuario</span>
+                    <span class="role-badge" id="userRoleBadge">Inventarios</span>
+                </div>
+                <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</button>
+                <span class="badge-folio" id="badgeFolio"><i class="fas fa-boxes"></i> 0 lotes</span>
+                <span class="sync-status" id="syncStatus">
+                    <span class="sync-dot" id="syncDot"></span>
+                    <span id="syncText">Conectado</span>
+                </span>
+            </div>
         </div>
 
         <div class="tabs">
@@ -698,28 +1102,31 @@
         <div id="tabBoard" class="tab-content active">
             <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem;">
                 <span style="color: #8a9ab0; font-size: 0.8rem; align-self: center;"><i class="fas fa-arrows-alt"></i> Arrastra las tarjetas para cambiar el estado</span>
+                <span style="color: #63b3ed; font-size: 0.7rem; align-self: center; margin-left: auto;">
+                    <i class="fas fa-bolt"></i> Tiempo real activo
+                </span>
+                <span style="color: #9f7aea; font-size: 0.7rem; align-self: center;">
+                    <i class="fas fa-clock"></i> Soft-sync cada 4s
+                </span>
             </div>
             <div class="board" id="boardContainer"></div>
         </div>
 
         <!-- LISTA -->
         <div id="tabList" class="tab-content">
-            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; align-items: center;">
+            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; align-items: center;" id="listaBotones">
                 <button class="btn btn-primary" onclick="openAgregarProductoModal()"><i class="fas fa-plus"></i> Agregar producto</button>
-                
                 <button class="btn btn-success-solid" onclick="exportarExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
                 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><i class="fas fa-file-excel"></i> Importar Excel</button>
                 <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(event)">
-                
                 <button class="btn btn-json-export" onclick="exportarJSON()"><i class="fas fa-file-code"></i> Exportar JSON</button>
                 <button class="btn btn-json-import" onclick="document.getElementById('jsonFileInput').click()"><i class="fas fa-file-code"></i> Importar JSON</button>
                 <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importarJSON(event)">
-                
+                <button class="btn btn-sm btn-sort" onclick="ordenarLista()" id="btnOrdenar"><i class="fas fa-sort"></i> Ordenar</button>
                 <button class="btn btn-sm" onclick="limpiarTodosLosFiltros()" style="margin-left: auto;"><i class="fas fa-undo"></i> Limpiar filtros</button>
             </div>
 
-            <!-- Drop zone para arrastrar archivos -->
-            <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
+            <div class="drop-zone" id="dropZone">
                 <i class="fas fa-cloud-upload-alt"></i>
                 <span>Arrastra y suelta un archivo Excel o JSON aquí</span>
             </div>
@@ -728,83 +1135,19 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>
-                                <span class="th-label"><i class="fas fa-hashtag"></i> Folio</span>
-                                <select class="filter-select" id="filterFolio" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-box"></i> Lote</span>
-                                <select class="filter-select" id="filterLote" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-code"></i> COMA</span>
-                                <select class="filter-select" id="filterComa" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-cube"></i> Piezas</span>
-                                <select class="filter-select" id="filterPiezas" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-tag"></i> Descripción</span>
-                                <select class="filter-select" id="filterDesc" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-box-open"></i> Empaque</span>
-                                <select class="filter-select" id="filterEmpaque" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-weight-hanging"></i> Capacidad</span>
-                                <select class="filter-select" id="filterCapacidad" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-comment"></i> Motivo</span>
-                                <select class="filter-select" id="filterMotivo" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-user-tie"></i> Responsable</span>
-                                <select class="filter-select" id="filterResponsable" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-calendar-alt"></i> Fecha reg.</span>
-                                <select class="filter-select" id="filterFecha" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-calendar-check"></i> Entrega</span>
-                                <select class="filter-select" id="filterEntrega" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </th>
-                            <th>
-                                <span class="th-label"><i class="fas fa-clock"></i> Retraso</span>
-                                <select class="filter-select" id="filterRetraso" onchange="aplicarFiltros()">
-                                    <option value="">Todos</option>
-                                    <option value="Si">Si</option>
-                                    <option value="No">No</option>
-                                </select>
-                            </th>
-                            <th style="min-width:55px;">
-                                <span class="th-label"><i class="fas fa-cog"></i> Acciones</span>
-                            </th>
+                            <th><span class="th-label"><i class="fas fa-hashtag"></i> Folio</span><select class="filter-select" id="filterFolio" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-box"></i> Lote</span><select class="filter-select" id="filterLote" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-code"></i> COMA</span><select class="filter-select" id="filterComa" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-cube"></i> Piezas</span><select class="filter-select" id="filterPiezas" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-tag"></i> Descripción</span><select class="filter-select" id="filterDesc" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-box-open"></i> Empaque</span><select class="filter-select" id="filterEmpaque" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-weight-hanging"></i> Capacidad</span><select class="filter-select" id="filterCapacidad" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-comment"></i> Motivo</span><select class="filter-select" id="filterMotivo" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-user-tie"></i> Responsable</span><select class="filter-select" id="filterResponsable" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-calendar-alt"></i> Fecha reg.</span><select class="filter-select" id="filterFecha" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-calendar-check"></i> Entrega</span><select class="filter-select" id="filterEntrega" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-clock"></i> Retraso</span><select class="filter-select" id="filterRetraso" onchange="aplicarFiltros()"><option value="">Todos</option><option value="Si">Si</option><option value="No">No</option></select></th>
+                            <th style="min-width:55px;"><span class="th-label"><i class="fas fa-cog"></i> Acciones</span></th>
                         </tr>
                     </thead>
                     <tbody id="tableBody"></tbody>
@@ -813,21 +1156,371 @@
         </div>
     </div>
 
-    <div id="modalContainer"></div>
+    <!-- SESSION TIMER -->
+    <div class="session-timer" id="sessionTimer">
+        <i class="fas fa-clock timer-icon"></i>
+        <span>Sesión:</span>
+        <span class="timer-value" id="timerValue">10:00</span>
+    </div>
 
+    <div id="modalContainer"></div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // ---------- ESTADO ----------
-        let lotes = [];
+        // ========== CONFIGURACIÓN SUPABASE ==========
+        const SUPABASE_URL = 'https://pickstlagzktzfceqerg.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpY2tzdGxhZ3prdHpmY2VxZXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMzM4NDYsImV4cCI6MjEwMDkwOTg0Nn0.er5EDZ5p8hA3mQeokH4U-GmfUZXcCYMnRVfPbnibnhY';
+
+        let supabaseClient = null;
+        let realtimeChannel = null;
+        let isRealtimeConnected = false;
+        let isApplyingRealtime = false;
+
+        // ========== SOFT-SYNC ==========
+        let softSyncTimer = null;
+        const SOFT_SYNC_INTERVAL_MS = 4000;
+
+        // ========== ORDEN - CÍCLICO ==========
+        // Estados: 0 = sin ordenar, 1 = Folio, 2 = Lote, 3 = COMA
+        let ordenEstado = 0;
+        const ORDEN_LABELS = ['', 'Folio ↑', 'Lote ↑', 'COMA ↑'];
+        const ORDEN_CLASSES = ['', 'folio', 'lote', 'coma'];
+
+        // ========== CONFIGURACIÓN DE SESIÓN ==========
+        const SESSION_TIMEOUT_MINUTES = 10;
+        let currentUser = null;
+        let sessionTimer = null;
+        let tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
+        let isLoggingOut = false;
+
+        function initSupabase() {
+            try {
+                if (typeof supabase !== 'undefined' && supabase.createClient) {
+                    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log('✅ Supabase inicializado correctamente');
+                    return true;
+                } else {
+                    console.warn('⏳ Esperando carga de Supabase...');
+                    return false;
+                }
+            } catch (e) {
+                console.error('❌ Error al inicializar Supabase:', e);
+                return false;
+            }
+        }
+
+        if (!initSupabase()) {
+            setTimeout(() => { initSupabase(); }, 1000);
+        }
+
+        function cargarSesionGuardada() {
+            const saved = localStorage.getItem('sessionData');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    const ahora = Date.now();
+                    if (ahora - data.timestamp < SESSION_TIMEOUT_MINUTES * 60 * 1000) {
+                        currentUser = data.user;
+                        const elapsed = Math.floor((ahora - data.timestamp) / 1000);
+                        tiempoRestante = Math.max(0, SESSION_TIMEOUT_MINUTES * 60 - elapsed);
+                        cargarDatosPersistentes();
+                        iniciarSesion(true);
+                        return true;
+                    } else {
+                        localStorage.removeItem('sessionData');
+                    }
+                } catch (e) {
+                    localStorage.removeItem('sessionData');
+                }
+            }
+            return false;
+        }
+
+        function guardarSesion() {
+            if (currentUser) {
+                localStorage.setItem('sessionData', JSON.stringify({
+                    user: currentUser,
+                    timestamp: Date.now()
+                }));
+            }
+        }
+
+        function guardarDatosPersistentes() {
+            localStorage.setItem('productosData', JSON.stringify(productos));
+            localStorage.setItem('nextProdId', String(nextProdId));
+            localStorage.setItem('ordenEstado', String(ordenEstado));
+        }
+
+        function cargarDatosPersistentes() {
+            const productosData = localStorage.getItem('productosData');
+            const nextProd = localStorage.getItem('nextProdId');
+            const ordenState = localStorage.getItem('ordenEstado');
+            if (productosData) productos = JSON.parse(productosData);
+            if (nextProd) nextProdId = parseInt(nextProd);
+            if (ordenState) ordenEstado = parseInt(ordenState);
+        }
+
+        function actualizarSesion() {
+            if (currentUser && !isLoggingOut) {
+                guardarSesion();
+                guardarDatosPersistentes();
+                tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
+                actualizarTimerDisplay();
+            }
+        }
+
+        function setupActivityListeners() {
+            const events = ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+            events.forEach(event => {
+                document.addEventListener(event, actualizarSesion);
+            });
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const role = document.getElementById('loginRole').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+
+            if (role === 'invitado') {
+                currentUser = { role: 'invitado', name: 'Invitado' };
+                guardarSesion();
+                cargarDatosPersistentes();
+                if (productos.length === 0) inicializarDatosVacios();
+                iniciarSesion(false);
+                return true;
+            }
+
+            if (role === 'inventarios') {
+                if (password === 'Inventarios2026') {
+                    currentUser = { role: 'inventarios', name: 'Departamento de Inventarios' };
+                    guardarSesion();
+                    cargarDatosPersistentes();
+                    if (productos.length === 0) inicializarDatosVacios();
+                    iniciarSesion(false);
+                    return true;
+                } else {
+                    errorEl.textContent = '❌ Contraseña incorrecta. Intenta de nuevo.';
+                    document.getElementById('loginPassword').value = '';
+                    document.getElementById('loginPassword').focus();
+                    return false;
+                }
+            }
+            errorEl.textContent = '❌ Perfil no válido';
+            return false;
+        }
+
+        document.getElementById('loginRole').addEventListener('change', function() {
+            const passwordContainer = document.getElementById('passwordContainer');
+            const errorEl = document.getElementById('loginError');
+            errorEl.textContent = '';
+            if (this.value === 'invitado') {
+                passwordContainer.style.display = 'none';
+            } else {
+                passwordContainer.style.display = 'block';
+                document.getElementById('loginPassword').value = '';
+            }
+        });
+
+        function iniciarSesion(esRestauracion) {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+
+            document.getElementById('userNameDisplay').textContent = currentUser.name;
+
+            const badge = document.getElementById('userRoleBadge');
+            if (currentUser.role === 'inventarios') {
+                badge.textContent = '🔑 Inventarios';
+                badge.className = 'role-badge admin';
+            } else {
+                badge.textContent = '👁️ Stakeholder';
+                badge.className = 'role-badge';
+            }
+            aplicarPermisos();
+
+            if (!esRestauracion) {
+                tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
+            }
+
+            // Actualizar botón de orden según estado guardado
+            actualizarBotonOrden();
+
+            setupActivityListeners();
+            iniciarTimer();
+
+            setSyncStatus('loading', 'Cargando datos...');
+            cargarDatosDesdeSupabase().then(() => {
+                setupRealtimeSubscription();
+                iniciarSoftSync();
+            });
+        }
+
+        function logout() {
+            if (isLoggingOut) return;
+            isLoggingOut = true;
+            currentUser = null;
+            localStorage.removeItem('sessionData');
+
+            detenerSoftSync();
+
+            if (realtimeChannel) {
+                supabaseClient.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('appContainer').classList.remove('visible');
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').textContent = '';
+            const passwordContainer = document.getElementById('passwordContainer');
+            passwordContainer.style.display = 'block';
+            tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
+            actualizarTimerDisplay();
+            isLoggingOut = false;
+        }
+
+        // ========== TIMER ==========
+        function iniciarTimer() {
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+            }
+            actualizarTimerDisplay();
+            sessionTimer = setInterval(function() {
+                tiempoRestante--;
+                actualizarTimerDisplay();
+                if (tiempoRestante <= 0 && !isLoggingOut) {
+                    clearInterval(sessionTimer);
+                    sessionTimer = null;
+                    showToast('⏰ Sesión expirada por inactividad', 'error');
+                    setTimeout(function() {
+                        if (!isLoggingOut) {
+                            isLoggingOut = true;
+                            currentUser = null;
+                            localStorage.removeItem('sessionData');
+                            detenerSoftSync();
+                            if (sessionTimer) {
+                                clearInterval(sessionTimer);
+                                sessionTimer = null;
+                            }
+                            if (realtimeChannel) {
+                                supabaseClient.removeChannel(realtimeChannel);
+                                realtimeChannel = null;
+                            }
+                            document.getElementById('loginOverlay').classList.remove('hidden');
+                            document.getElementById('appContainer').classList.remove('visible');
+                            document.getElementById('loginPassword').value = '';
+                            document.getElementById('loginError').textContent = '';
+                            const passwordContainer = document.getElementById('passwordContainer');
+                            passwordContainer.style.display = 'block';
+                            tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
+                            actualizarTimerDisplay();
+                            isLoggingOut = false;
+                        }
+                    }, 1500);
+                }
+            }, 1000);
+        }
+
+        function actualizarTimerDisplay() {
+            const el = document.getElementById('timerValue');
+            const minutos = Math.floor(tiempoRestante / 60);
+            const segundos = tiempoRestante % 60;
+            el.textContent = `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+            if (tiempoRestante < 60) {
+                el.classList.add('warning');
+            } else {
+                el.classList.remove('warning');
+            }
+        }
+
+        // ========== PERMISOS ==========
+        function esAdmin() {
+            return currentUser && currentUser.role === 'inventarios';
+        }
+
+        function aplicarPermisos() {
+            const isAdmin = esAdmin();
+            const botonesAccion = document.querySelectorAll('#listaBotones .btn');
+            botonesAccion.forEach(btn => {
+                if (btn.id === 'btnOrdenar' || btn.onclick && btn.onclick.toString().includes('limpiarTodosLosFiltros')) {
+                    return;
+                }
+                if (!isAdmin) {
+                    btn.classList.add('disabled');
+                } else {
+                    btn.classList.remove('disabled');
+                }
+            });
+            const dropZone = document.getElementById('dropZone');
+            if (!isAdmin) {
+                dropZone.classList.add('disabled');
+            } else {
+                dropZone.classList.remove('disabled');
+            }
+            document.getElementById('fileInput').disabled = !isAdmin;
+            document.getElementById('jsonFileInput').disabled = !isAdmin;
+        }
+
+        // ========== ESTADO INICIAL VACÍO ==========
+        function inicializarDatosVacios() {
+            productos = [];
+            nextProdId = 1;
+            guardarDatosPersistentes();
+        }
+
+        // ========== ESTADO ==========
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         let productos = [];
-        let nextLoteId = 1;
         let nextProdId = 1;
         let editingRowId = null;
 
-        // ---------- FUNCIONES AUX ----------
-        function getLote(id) { return lotes.find(l => l.id === id); }
-        function getProductosByLote(loteId) { return productos.filter(p => p.loteId === loteId); }
-        function getStatus(loteId) { const l = getLote(loteId); return l ? l.status : null; }
-        function getFolio(loteId) { const l = getLote(loteId); return l ? l.folio : null; }
+        // ========== FUNCIONES PARA AGRUPAR PRODUCTOS POR LOTE ==========
+        function getLotes() {
+            const lotesMap = new Map();
+            productos.forEach(p => {
+                const loteId = p.loteId || p.lote_id;
+                if (!lotesMap.has(loteId)) {
+                    const folio = p.folio || null;
+                    const status = p.status || 'Rojo';
+                    lotesMap.set(loteId, {
+                        id: loteId,
+                        folio: folio,
+                        status: status,
+                        fechaCreacion: p.fechaRegistro || p.fecha_registro || new Date().toISOString(),
+                        fechaEntrega: p.fechaEntrega || p.fecha_entrega || null,
+                        productos: []
+                    });
+                }
+                const lote = lotesMap.get(loteId);
+                if (p.folio && !lote.folio) {
+                    lote.folio = p.folio;
+                }
+                if (p.status && p.status !== lote.status) {
+                    if (lote.status === 'Rojo' && p.folio) {
+                        lote.status = 'Amarillo';
+                    }
+                    if (lote.status === 'Amarillo' && p.fechaEntrega) {
+                        lote.status = 'Verde';
+                    }
+                }
+                lote.productos.push(p);
+            });
+            return Array.from(lotesMap.values());
+        }
+
+        function getLote(id) {
+            const lotes = getLotes();
+            return lotes.find(l => l.id === id);
+        }
+
+        function getProductosByLote(loteId) {
+            return productos.filter(p => (p.loteId || p.lote_id) === loteId);
+        }
 
         function getDiasAtraso(loteId) {
             const l = getLote(loteId);
@@ -856,22 +1549,737 @@
         }
 
         function actualizarBadge() {
+            const lotes = getLotes();
             document.getElementById('badgeFolio').innerHTML = `<i class="fas fa-boxes"></i> ${lotes.length} lotes`;
         }
 
-        // ========== EXCEL: EXPORTAR ==========
+        // ========== TOAST ==========
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' :
+                'fa-info-circle';
+            toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                toast.style.transition = '0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ========== CARGA DE DATOS DESDE SUPABASE ==========
+        async function cargarDatosDesdeSupabase() {
+            if (!supabaseClient) {
+                if (!initSupabase()) {
+                    showToast('Error: No se pudo conectar con Supabase', 'error');
+                    return;
+                }
+            }
+
+            setSyncStatus('loading', 'Cargando datos...');
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('productos')
+                    .select('*')
+                    .order('id', { ascending: true });
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const lotesMap = new Map();
+                    data.forEach(p => {
+                        const loteId = p.lote_id;
+                        if (!lotesMap.has(loteId)) {
+                            lotesMap.set(loteId, {
+                                folio: p.folio || null,
+                                status: p.status || 'Rojo',
+                                fechaEntrega: p.fecha_entrega || null
+                            });
+                        }
+                        if (p.folio) {
+                            lotesMap.get(loteId).folio = p.folio;
+                        }
+                        const currentStatus = lotesMap.get(loteId).status;
+                        const statusOrder = ['Rojo', 'Amarillo', 'Verde', 'Entregado'];
+                        if (p.status && statusOrder.indexOf(p.status) > statusOrder.indexOf(currentStatus)) {
+                            lotesMap.get(loteId).status = p.status;
+                        }
+                        if (p.fecha_entrega) {
+                            lotesMap.get(loteId).fechaEntrega = p.fecha_entrega;
+                        }
+                    });
+
+                    productos = data.map(p => {
+                        const loteInfo = lotesMap.get(p.lote_id);
+                        return {
+                            id: p.id,
+                            loteId: p.lote_id,
+                            coma: p.coma,
+                            piezas: p.piezas,
+                            desc: p.descripcion,
+                            empaque: p.empaque,
+                            capacidad: p.capacidad,
+                            motivo: p.motivo,
+                            folio: loteInfo.folio,
+                            status: loteInfo.status,
+                            fechaRegistro: p.fecha_registro,
+                            fechaEntrega: loteInfo.fechaEntrega,
+                            _version: p.version || 1,
+                            _updated_at: p.updated_at
+                        };
+                    });
+
+                    const maxId = data.reduce((max, p) => Math.max(max, p.id), 0);
+                    if (maxId >= nextProdId) nextProdId = maxId + 1;
+
+                    console.log(`📥 Cargados ${productos.length} productos desde Supabase`);
+                } else {
+                    console.log('📭 No hay datos en Supabase');
+                    productos = [];
+                }
+
+                guardarDatosPersistentes();
+                actualizarUI();
+                setSyncStatus('realtime', 'Tiempo real conectado');
+
+                const lotes = getLotes();
+                showToast(`Datos cargados: ${lotes.length} lotes, ${productos.length} productos`, 'success');
+
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+                setSyncStatus('error', 'Error al cargar datos');
+                showToast('Error al cargar datos: ' + error.message, 'error');
+            }
+        }
+
+        // ========== SOFT-SYNC ==========
+        function usuarioEstaOcupado() {
+            if (editingRowId !== null) return true;
+            const modal = document.getElementById('modalContainer');
+            if (modal && modal.innerHTML.trim() !== '') return true;
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
+                if (active.closest('.modal-glass') || active.closest('tr.editing')) return true;
+            }
+            return false;
+        }
+
+        async function softSyncFromServer() {
+            if (!supabaseClient || !currentUser) return;
+            if (usuarioEstaOcupado()) {
+                console.log('⏸️ Soft-sync pausado: usuario editando o con modal abierto');
+                return;
+            }
+            if (isApplyingRealtime) return;
+
+            try {
+                setSyncStatus('softsync', 'Soft-sync...');
+
+                const { data, error } = await supabaseClient
+                    .from('productos')
+                    .select('*')
+                    .order('id', { ascending: true });
+
+                if (error) throw error;
+
+                if (usuarioEstaOcupado()) return;
+
+                const lotesMap = new Map();
+                (data || []).forEach(p => {
+                    const loteId = p.lote_id;
+                    if (!lotesMap.has(loteId)) {
+                        lotesMap.set(loteId, {
+                            folio: p.folio || null,
+                            status: p.status || 'Rojo',
+                            fechaEntrega: p.fecha_entrega || null
+                        });
+                    }
+                    if (p.folio) lotesMap.get(loteId).folio = p.folio;
+                    const cur = lotesMap.get(loteId).status;
+                    const order = ['Rojo', 'Amarillo', 'Verde', 'Entregado'];
+                    if (p.status && order.indexOf(p.status) > order.indexOf(cur)) {
+                        lotesMap.get(loteId).status = p.status;
+                    }
+                    if (p.fecha_entrega) lotesMap.get(loteId).fechaEntrega = p.fecha_entrega;
+                });
+
+                const nuevos = (data || []).map(p => {
+                    const loteInfo = lotesMap.get(p.lote_id);
+                    return {
+                        id: p.id,
+                        loteId: p.lote_id,
+                        coma: p.coma,
+                        piezas: p.piezas,
+                        desc: p.descripcion,
+                        empaque: p.empaque,
+                        capacidad: p.capacidad,
+                        motivo: p.motivo,
+                        folio: loteInfo.folio,
+                        status: loteInfo.status,
+                        fechaRegistro: p.fecha_registro,
+                        fechaEntrega: loteInfo.fechaEntrega,
+                        _version: p.version || 1,
+                        _updated_at: p.updated_at
+                    };
+                });
+
+                const before = JSON.stringify(productos.map(p => [p.id, p._version, p.status, p.folio, p.coma]));
+                const after = JSON.stringify(nuevos.map(p => [p.id, p._version, p.status, p.folio, p.coma]));
+                if (before === after) {
+                    setSyncStatus('realtime', 'Tiempo real conectado');
+                    return;
+                }
+
+                productos = nuevos;
+                const maxId = productos.reduce((m, p) => Math.max(m, p.id), 0);
+                if (maxId >= nextProdId) nextProdId = maxId + 1;
+
+                guardarDatosPersistentes();
+                actualizarUI();
+                console.log('🔄 Soft-sync aplicado:', productos.length, 'productos');
+                showToast(`🔄 Datos actualizados: ${productos.length} productos`, 'info');
+
+                setSyncStatus('realtime', 'Tiempo real conectado');
+
+            } catch (e) {
+                console.warn('Soft-sync error:', e.message);
+                setSyncStatus('error', 'Error en soft-sync');
+            }
+        }
+
+        function iniciarSoftSync() {
+            if (softSyncTimer) clearInterval(softSyncTimer);
+            softSyncTimer = setInterval(softSyncFromServer, SOFT_SYNC_INTERVAL_MS);
+            console.log(`🔄 Soft-sync iniciado cada ${SOFT_SYNC_INTERVAL_MS/1000}s`);
+        }
+
+        function detenerSoftSync() {
+            if (softSyncTimer) {
+                clearInterval(softSyncTimer);
+                softSyncTimer = null;
+                console.log('⏹️ Soft-sync detenido');
+            }
+        }
+
+        // ========== ENVIAR OPERACIÓN A SUPABASE ==========
+        async function enviarOperacion(operacion, data) {
+            if (!esAdmin()) {
+                showToast('No tienes permisos para realizar esta operación', 'error');
+                return null;
+            }
+
+            if (!supabaseClient) {
+                if (!initSupabase()) {
+                    showToast('Error: No se pudo conectar con Supabase', 'error');
+                    return null;
+                }
+            }
+
+            setSyncStatus('syncing', 'Enviando operación...');
+
+            try {
+                let result;
+                const now = new Date().toISOString();
+
+                if (operacion === 'INSERT') {
+                    const { data: inserted, error } = await supabaseClient
+                        .from('productos')
+                        .insert({
+                            id: data.id,
+                            lote_id: data.loteId,
+                            coma: data.coma,
+                            piezas: data.piezas,
+                            descripcion: data.desc,
+                            empaque: data.empaque,
+                            capacidad: data.capacidad,
+                            motivo: data.motivo,
+                            folio: data.folio || null,
+                            fecha_registro: data.fechaRegistro || now,
+                            fecha_entrega: data.fechaEntrega || null,
+                            status: data.status || 'Rojo',
+                            version: data._version || 1,
+                            updated_at: now
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+                    result = inserted;
+                    console.log('✅ INSERT exitoso:', result.id);
+
+                } else if (operacion === 'UPDATE') {
+                    data._version = (data._version || 1) + 1;
+
+                    const { data: updated, error } = await supabaseClient
+                        .from('productos')
+                        .update({
+                            lote_id: data.loteId,
+                            coma: data.coma,
+                            piezas: data.piezas,
+                            descripcion: data.desc,
+                            empaque: data.empaque,
+                            capacidad: data.capacidad,
+                            motivo: data.motivo,
+                            folio: data.folio || null,
+                            fecha_registro: data.fechaRegistro,
+                            fecha_entrega: data.fechaEntrega || null,
+                            status: data.status || 'Rojo',
+                            version: data._version,
+                            updated_at: now
+                        })
+                        .eq('id', data.id)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+                    result = updated;
+                    console.log('✅ UPDATE exitoso:', result.id);
+
+                } else if (operacion === 'DELETE') {
+                    const { error } = await supabaseClient
+                        .from('productos')
+                        .delete()
+                        .eq('id', data.id);
+
+                    if (error) throw error;
+                    result = { id: data.id, deleted: true };
+                    console.log('✅ DELETE exitoso:', data.id);
+                }
+
+                setSyncStatus('realtime', 'Tiempo real conectado');
+                return result;
+
+            } catch (error) {
+                console.error(`Error en ${operacion}:`, error);
+                setSyncStatus('error', `Error en ${operacion}`);
+                showToast(`Error al ${operacion === 'INSERT' ? 'agregar' : operacion === 'UPDATE' ? 'actualizar' : 'eliminar'}: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        // ========== TIEMPO REAL ==========
+        function setupRealtimeSubscription() {
+            if (!supabaseClient) {
+                if (!initSupabase()) {
+                    setTimeout(() => setupRealtimeSubscription(), 2000);
+                    return;
+                }
+            }
+
+            if (realtimeChannel) {
+                supabaseClient.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+
+            setSyncStatus('realtime', 'Conectando tiempo real...');
+
+            try {
+                realtimeChannel = supabaseClient
+                    .channel('tabla-productos')
+                    .on(
+                        'postgres_changes', {
+                            event: '*',
+                            schema: 'public',
+                            table: 'productos'
+                        },
+                        (payload) => {
+                            console.log('📡 Cambio en tiempo real:', payload);
+                            aplicarCambioRealtime(payload);
+                        }
+                    )
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            isRealtimeConnected = true;
+                            setSyncStatus('realtime', 'Tiempo real conectado');
+                            console.log('✅ Suscrito a cambios en tiempo real');
+                        } else if (status === 'CHANNEL_ERROR') {
+                            isRealtimeConnected = false;
+                            setSyncStatus('error', 'Error en tiempo real');
+                            console.error('❌ Error en canal de tiempo real');
+                            setTimeout(() => {
+                                if (!isRealtimeConnected) {
+                                    setupRealtimeSubscription();
+                                }
+                            }, 3000);
+                        }
+                    });
+            } catch (error) {
+                console.error('Error al configurar tiempo real:', error);
+                setSyncStatus('error', 'Error en tiempo real');
+            }
+        }
+
+        function aplicarCambioRealtime(payload) {
+            if (!payload) return;
+
+            const eventType = payload.eventType || payload.event;
+            const newRecord = payload.new;
+            const oldRecord = payload.old;
+
+            if (!eventType) {
+                console.warn('⚠️ Payload sin eventType:', payload);
+                return;
+            }
+
+            if (isApplyingRealtime) {
+                setTimeout(() => aplicarCambioRealtime(payload), 50);
+                return;
+            }
+
+            isApplyingRealtime = true;
+            setSyncStatus('receiving', 'Aplicando cambios...');
+
+            try {
+                console.log(`🔄 Procesando ${eventType} en tiempo real`);
+
+                if (eventType === 'INSERT') {
+                    if (!newRecord) return;
+                    const exists = productos.some(p => p.id === newRecord.id);
+                    if (!exists) {
+                        const nuevoProducto = {
+                            id: newRecord.id,
+                            loteId: newRecord.lote_id,
+                            coma: newRecord.coma,
+                            piezas: newRecord.piezas,
+                            desc: newRecord.descripcion,
+                            empaque: newRecord.empaque,
+                            capacidad: newRecord.capacidad,
+                            motivo: newRecord.motivo,
+                            folio: newRecord.folio || null,
+                            status: newRecord.status || 'Rojo',
+                            fechaRegistro: newRecord.fecha_registro,
+                            fechaEntrega: newRecord.fecha_entrega || null,
+                            _version: newRecord.version || 1,
+                            _updated_at: newRecord.updated_at
+                        };
+                        productos.push(nuevoProducto);
+                        if (newRecord.id >= nextProdId) nextProdId = newRecord.id + 1;
+                        showToast(`📦 Nuevo producto: ${newRecord.coma}`, 'info');
+                        guardarDatosPersistentes();
+                        actualizarUI();
+                    }
+
+                } else if (eventType === 'UPDATE') {
+                    if (!newRecord) return;
+                    const index = productos.findIndex(p => p.id === newRecord.id);
+                    if (index !== -1) {
+                        productos[index] = {
+                            id: newRecord.id,
+                            loteId: newRecord.lote_id,
+                            coma: newRecord.coma,
+                            piezas: newRecord.piezas,
+                            desc: newRecord.descripcion,
+                            empaque: newRecord.empaque,
+                            capacidad: newRecord.capacidad,
+                            motivo: newRecord.motivo,
+                            folio: newRecord.folio || null,
+                            status: newRecord.status || 'Rojo',
+                            fechaRegistro: newRecord.fecha_registro,
+                            fechaEntrega: newRecord.fecha_entrega || null,
+                            _version: newRecord.version || 1,
+                            _updated_at: newRecord.updated_at
+                        };
+                        showToast(`📝 Producto actualizado: ${newRecord.coma}`, 'info');
+                        guardarDatosPersistentes();
+                        actualizarUI();
+                    } else {
+                        productos.push({
+                            id: newRecord.id,
+                            loteId: newRecord.lote_id,
+                            coma: newRecord.coma,
+                            piezas: newRecord.piezas,
+                            desc: newRecord.descripcion,
+                            empaque: newRecord.empaque,
+                            capacidad: newRecord.capacidad,
+                            motivo: newRecord.motivo,
+                            folio: newRecord.folio || null,
+                            status: newRecord.status || 'Rojo',
+                            fechaRegistro: newRecord.fecha_registro,
+                            fechaEntrega: newRecord.fecha_entrega || null,
+                            _version: newRecord.version || 1,
+                            _updated_at: newRecord.updated_at
+                        });
+                        if (newRecord.id >= nextProdId) nextProdId = newRecord.id + 1;
+                        guardarDatosPersistentes();
+                        actualizarUI();
+                    }
+
+                } else if (eventType === 'DELETE') {
+                    if (!oldRecord) return;
+                    const index = productos.findIndex(p => p.id === oldRecord.id);
+                    if (index !== -1) {
+                        const deleted = productos[index];
+                        productos.splice(index, 1);
+                        showToast(`🗑️ Producto eliminado: ${deleted.coma}`, 'info');
+                        guardarDatosPersistentes();
+                        actualizarUI();
+                    }
+                }
+
+                if (isRealtimeConnected) {
+                    setSyncStatus('realtime', 'Tiempo real conectado');
+                }
+
+            } catch (error) {
+                console.error('Error al aplicar cambio en tiempo real:', error);
+                setSyncStatus('error', 'Error al aplicar cambio');
+            } finally {
+                isApplyingRealtime = false;
+            }
+        }
+
+        function actualizarUI() {
+            actualizarOpcionesFiltros();
+            renderBoard();
+            renderList();
+            actualizarBotonOrden();
+        }
+
+        // ========== FUNCIONES DE ESTADO ==========
+        function setSyncStatus(status, message) {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+            dot.className = 'sync-dot';
+            if (status === 'syncing') {
+                dot.classList.add('syncing');
+                text.textContent = message || 'Sincronizando...';
+            } else if (status === 'error') {
+                dot.classList.add('error');
+                text.textContent = message || 'Error';
+            } else if (status === 'realtime') {
+                dot.classList.add('realtime');
+                text.textContent = message || 'Tiempo real';
+            } else if (status === 'receiving') {
+                dot.classList.add('receiving');
+                text.textContent = message || 'Recibiendo...';
+            } else if (status === 'loading') {
+                dot.classList.add('loading');
+                text.textContent = message || 'Cargando...';
+            } else if (status === 'softsync') {
+                dot.classList.add('softsync');
+                text.textContent = message || 'Soft-sync...';
+            } else {
+                text.textContent = message || 'Conectado';
+            }
+        }
+
+        // ========== ORDENAR - VERSIÓN CÍCLICA ==========
+        function ordenarLista() {
+            if (!esAdmin()) { showToast('No tienes permisos para ordenar', 'error'); return; }
+
+            // Avanzar al siguiente estado (cíclico)
+            ordenEstado = (ordenEstado + 1) % 4;
+
+            actualizarBotonOrden();
+
+            if (ordenEstado === 0) {
+                showToast('Orden desactivado - orden por ID', 'info');
+            } else {
+                showToast(`Ordenando por ${ORDEN_LABELS[ordenEstado]}`, 'info');
+            }
+
+            renderList();
+            guardarDatosPersistentes();
+        }
+
+        function actualizarBotonOrden() {
+            const btn = document.getElementById('btnOrdenar');
+            if (!btn) return;
+
+            // Remover todas las clases de orden
+            btn.classList.remove('activo', 'folio', 'lote', 'coma');
+
+            if (ordenEstado === 0) {
+                btn.innerHTML = '<i class="fas fa-sort"></i> Ordenar';
+            } else {
+                btn.classList.add('activo');
+                btn.classList.add(ORDEN_CLASSES[ordenEstado]);
+                const label = ORDEN_LABELS[ordenEstado];
+                btn.innerHTML = `<i class="fas fa-sort-amount-up"></i> ${label}`;
+            }
+        }
+
+        function ordenarProductos(productosList) {
+            if (ordenEstado === 0) {
+                return [...productosList].sort((a, b) => a.id - b.id);
+            }
+
+            return [...productosList].sort((a, b) => {
+                let resultado = 0;
+
+                // 1. Orden por Folio (si el estado lo permite)
+                if (ordenEstado === 1 || ordenEstado >= 1) {
+                    const folioA = a.folio || '';
+                    const folioB = b.folio || '';
+
+                    // Los que tienen folio van primero
+                    if (folioA === '' && folioB !== '') return 1;
+                    if (folioA !== '' && folioB === '') return -1;
+
+                    resultado = folioA.localeCompare(folioB);
+                    if (resultado !== 0) return resultado;
+                }
+
+                // 2. Orden por Lote (si el estado lo permite)
+                if (ordenEstado === 2 || ordenEstado === 3) {
+                    resultado = a.loteId - b.loteId;
+                    if (resultado !== 0) return resultado;
+                }
+
+                // 3. Orden por COMA (si el estado lo permite)
+                if (ordenEstado === 3) {
+                    resultado = a.coma.localeCompare(b.coma);
+                    if (resultado !== 0) return resultado;
+                }
+
+                // Si todo es igual, por ID
+                return a.id - b.id;
+            });
+        }
+
+        // ========== PROCESAR IMPORTACIÓN (BULK INSERT) ==========
+        function procesarImportacion(data) {
+            let nuevos = 0;
+            let duplicados = 0;
+            let errores = 0;
+            let resultados = [];
+
+            const lotesMap = new Map();
+
+            data.forEach(row => {
+                const coma = row['COMA'] || row['Coma'] || row['coma'] || '';
+                const piezas = parseInt(row['Piezas'] || row['piezas'] || 0);
+                const desc = row['Descripción'] || row['Descripcion'] || row['descripcion'] || row['desc'] ||
+                    'Sin descripción';
+                const empaque = row['Empaque'] || row['empaque'] || '—';
+                const capacidad = row['Capacidad'] || row['capacidad'] || '—';
+                const motivo = row['Motivo'] || row['motivo'] || '—';
+                let folio = row['Folio'] || row['folio'] || null;
+                if (folio !== null && folio !== '') {
+                    folio = String(folio).trim();
+                }
+                let loteStr = row['Lote'] || row['lote'] || null;
+                let loteNumero = null;
+                if (loteStr !== null && loteStr !== '') {
+                    const loteStrClean = String(loteStr).trim();
+                    const match = loteStrClean.match(/(\d+)/);
+                    if (match) {
+                        loteNumero = parseInt(match[1]);
+                    }
+                }
+
+                if (!coma) {
+                    errores++;
+                    resultados.push({ tipo: 'error', mensaje: 'Falta COMA en una fila' });
+                    return;
+                }
+
+                const existe = productos.find(p => p.coma === coma);
+                if (existe) {
+                    duplicados++;
+                    resultados.push({ tipo: 'duplicado', mensaje: `COMA "${coma}" ya existe` });
+                    return;
+                }
+
+                const loteId = loteNumero || nextProdId;
+
+                if (!lotesMap.has(loteId)) {
+                    lotesMap.set(loteId, {
+                        folio: folio,
+                        status: folio ? 'Amarillo' : 'Rojo',
+                        fechaEntrega: null
+                    });
+                } else {
+                    const loteInfo = lotesMap.get(loteId);
+                    if (folio && !loteInfo.folio) {
+                        loteInfo.folio = folio;
+                        if (loteInfo.status === 'Rojo') {
+                            loteInfo.status = 'Amarillo';
+                        }
+                    }
+                }
+
+                productos.push({
+                    id: nextProdId++,
+                    loteId: loteId,
+                    coma: coma,
+                    piezas: piezas,
+                    desc: desc,
+                    empaque: empaque,
+                    capacidad: capacidad,
+                    motivo: motivo,
+                    folio: folio,
+                    status: lotesMap.get(loteId).status,
+                    fechaRegistro: new Date().toISOString(),
+                    fechaEntrega: null,
+                    _version: 1
+                });
+                nuevos++;
+                resultados.push({ tipo: 'nuevo', mensaje: `Producto "${coma}" agregado al Lote #${loteId}${folio ? ' con folio '+folio : ''}` });
+            });
+
+            return { nuevos, duplicados, errores, resultados };
+        }
+
+        // ========== BULK INSERT PARALELO ==========
+        async function insertarProductosEnLote(productosNuevos) {
+            if (!esAdmin()) return;
+            if (productosNuevos.length === 0) return;
+
+            setSyncStatus('syncing', `Insertando ${productosNuevos.length} productos...`);
+            showToast(`⏳ Insertando ${productosNuevos.length} productos en Supabase...`, 'info');
+
+            const batchSize = 50;
+            let insertados = 0;
+            let errores = 0;
+
+            for (let i = 0; i < productosNuevos.length; i += batchSize) {
+                const batch = productosNuevos.slice(i, i + batchSize);
+                const promises = batch.map(p => enviarOperacion('INSERT', p));
+
+                const resultados = await Promise.allSettled(promises);
+                resultados.forEach(r => {
+                    if (r.status === 'fulfilled' && r.value) {
+                        insertados++;
+                    } else {
+                        errores++;
+                    }
+                });
+
+                console.log(`📦 Lote ${Math.floor(i/batchSize) + 1}: ${batch.length} productos, ${insertados} insertados`);
+            }
+
+            if (errores > 0) {
+                showToast(`⚠️ ${insertados} productos insertados, ${errores} errores`, 'error');
+            } else {
+                showToast(`✅ ${insertados} productos insertados correctamente`, 'success');
+            }
+
+            setSyncStatus('realtime', 'Tiempo real conectado');
+            actualizarUI();
+        }
+
+        // ========== EXCEL ==========
         function exportarExcel() {
+            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
             const data = [];
-            data.push(['Folio', 'Lote', 'COMA', 'Piezas', 'Descripción', 'Empaque', 'Capacidad', 'Motivo', 'Responsable', 'Fecha Registro', 'Fecha Entrega', 'Estado', 'Retraso']);
+            data.push(['Folio', 'Lote', 'COMA', 'Piezas', 'Descripción', 'Empaque', 'Capacidad', 'Motivo', 'Responsable',
+                'Fecha Registro', 'Fecha Entrega', 'Estado', 'Retraso'
+            ]);
 
             productos.forEach(p => {
-                const st = getStatus(p.loteId);
-                const folio = getFolio(p.loteId) || 'Sin folio';
-                const loteStr = `Lote #${p.loteId}`;
+                const st = p.status || 'Rojo';
+                const folio = p.folio || '';
+                const loteStr = `Lote ${p.loteId}`;
                 const responsable = getResponsable(st);
                 const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
-                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
-                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
+                const dias = getDiasAtraso(p.loteId);
+                const extra = getAdditionalLight(st, dias);
                 const tieneRetraso = extra ? 'Si' : 'No';
 
                 data.push([
@@ -890,40 +2298,16 @@
                 { wch: 8 }
             ];
             XLSX.writeFile(wb, 'Inventario_Lotes.xlsx');
+            showToast('Excel exportado correctamente', 'success');
+            guardarDatosPersistentes();
         }
 
-        // ========== EXCEL: IMPORTAR ==========
         function importarExcel(event) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
             const file = event.target.files[0];
             if (!file) return;
             procesarArchivoExcel(file);
             event.target.value = '';
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            document.getElementById('dropZone').classList.add('drag-over');
-        }
-
-        function handleDragLeave(e) {
-            e.preventDefault();
-            document.getElementById('dropZone').classList.remove('drag-over');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            document.getElementById('dropZone').classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    procesarArchivoExcel(file);
-                } else if (file.name.endsWith('.json')) {
-                    procesarArchivoJSON(file);
-                } else {
-                    alert('Por favor, sube un archivo Excel (.xlsx/.xls) o JSON (.json)');
-                }
-            }
         }
 
         function procesarArchivoExcel(file) {
@@ -935,24 +2319,31 @@
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(firstSheet);
                     if (jsonData.length === 0) {
-                        alert('El archivo está vacío.');
+                        showToast('El archivo está vacío', 'error');
                         return;
                     }
                     const resultados = procesarImportacion(jsonData);
                     mostrarResumenImportacion(resultados);
+
+                    if (resultados.nuevos > 0) {
+                        const productosNuevos = productos.slice(-resultados.nuevos);
+                        insertarProductosEnLote(productosNuevos);
+                    }
+
+                    guardarDatosPersistentes();
                 } catch (error) {
-                    alert('Error al leer el archivo Excel: ' + error.message);
+                    showToast('Error al leer el Excel: ' + error.message, 'error');
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // ========== JSON: EXPORTAR ==========
+        // ========== JSON ==========
         function exportarJSON() {
+            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
             const data = productos.map(p => {
-                const st = getStatus(p.loteId);
                 return {
-                    folio: getFolio(p.loteId) || null,
+                    folio: p.folio || null,
                     lote: `Lote #${p.loteId}`,
                     coma: p.coma,
                     piezas: p.piezas,
@@ -960,9 +2351,10 @@
                     empaque: p.empaque,
                     capacidad: p.capacidad,
                     motivo: p.motivo,
-                    estado: st,
+                    estado: p.status || 'Rojo',
                     fecha_registro: new Date(p.fechaRegistro).toISOString().split('T')[0],
-                    fecha_entrega: getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toISOString().split('T')[0] : null
+                    fecha_entrega: p.fechaEntrega ? new Date(p.fechaEntrega).toISOString().split('T')[0] : null,
+                    version: p._version || 1
                 };
             });
 
@@ -973,10 +2365,12 @@
             a.download = 'Inventario_Lotes.json';
             a.click();
             URL.revokeObjectURL(url);
+            showToast('JSON exportado correctamente', 'success');
+            guardarDatosPersistentes();
         }
 
-        // ========== JSON: IMPORTAR ==========
         function importarJSON(event) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
             const file = event.target.files[0];
             if (!file) return;
             procesarArchivoJSON(file);
@@ -989,108 +2383,28 @@
                 try {
                     const jsonData = JSON.parse(e.target.result);
                     if (!Array.isArray(jsonData) || jsonData.length === 0) {
-                        alert('El archivo JSON está vacío o no es un array válido.');
+                        showToast('El archivo JSON está vacío', 'error');
                         return;
                     }
                     const resultados = procesarImportacion(jsonData);
                     mostrarResumenImportacion(resultados);
+
+                    if (resultados.nuevos > 0) {
+                        const productosNuevos = productos.slice(-resultados.nuevos);
+                        insertarProductosEnLote(productosNuevos);
+                    }
+
+                    guardarDatosPersistentes();
                 } catch (error) {
-                    alert('Error al leer el archivo JSON: ' + error.message);
+                    showToast('Error al leer el JSON: ' + error.message, 'error');
                 }
             };
             reader.readAsText(file);
         }
 
-        // ========== PROCESAR IMPORTACIÓN (común para Excel y JSON) ==========
-        function procesarImportacion(data) {
-            let nuevos = 0;
-            let duplicados = 0;
-            let errores = 0;
-            let resultados = [];
-
-            data.forEach(row => {
-                // Buscar columnas por nombre (flexible para Excel y JSON)
-                const coma = row['COMA'] || row['Coma'] || row['coma'] || '';
-                const piezas = parseInt(row['Piezas'] || row['piezas'] || 0);
-                const desc = row['Descripción'] || row['Descripcion'] || row['descripcion'] || row['desc'] || 'Sin descripción';
-                const empaque = row['Empaque'] || row['empaque'] || '—';
-                const capacidad = row['Capacidad'] || row['capacidad'] || '—';
-                const motivo = row['Motivo'] || row['motivo'] || '—';
-                const folio = row['Folio'] || row['folio'] || null;
-                const loteStr = row['Lote'] || row['lote'] || null;
-
-                if (!coma) {
-                    errores++;
-                    resultados.push({ tipo: 'error', mensaje: 'Falta COMA en una fila' });
-                    return;
-                }
-
-                // Verificar duplicado por COMA exacto
-                const existe = productos.find(p => p.coma === coma);
-                if (existe) {
-                    duplicados++;
-                    resultados.push({ tipo: 'duplicado', mensaje: `COMA "${coma}" ya existe` });
-                    return;
-                }
-
-                // Determinar lote
-                let loteId = null;
-                if (loteStr && loteStr.startsWith('Lote #')) {
-                    const num = parseInt(loteStr.replace('Lote #', ''));
-                    if (!isNaN(num)) {
-                        const loteExistente = getLote(num);
-                        if (loteExistente) {
-                            loteId = num;
-                        }
-                    }
-                }
-
-                if (!loteId && folio) {
-                    const lotePorFolio = lotes.find(l => l.folio === folio);
-                    if (lotePorFolio) {
-                        loteId = lotePorFolio.id;
-                    }
-                }
-
-                // Si no hay lote, crear uno nuevo en Rojo
-                if (!loteId) {
-                    loteId = nextLoteId++;
-                    const nuevoLote = {
-                        id: loteId,
-                        folio: folio || null,
-                        status: 'Rojo',
-                        fechaCreacion: new Date().toISOString(),
-                        fechaEntrega: null
-                    };
-                    if (folio && !lotes.some(l => l.folio === folio)) {
-                        nuevoLote.folio = folio;
-                    }
-                    lotes.push(nuevoLote);
-                }
-
-                // Crear producto
-                productos.push({
-                    id: nextProdId++,
-                    loteId: loteId,
-                    coma: coma,
-                    piezas: piezas,
-                    desc: desc,
-                    empaque: empaque,
-                    capacidad: capacidad,
-                    motivo: motivo,
-                    fechaRegistro: new Date().toISOString()
-                });
-                nuevos++;
-                resultados.push({ tipo: 'nuevo', mensaje: `Producto "${coma}" agregado al Lote #${loteId}` });
-            });
-
-            return { nuevos, duplicados, errores, resultados };
-        }
-
-        // ========== MOSTRAR RESUMEN IMPORTACIÓN ==========
         function mostrarResumenImportacion(resultados) {
             const { nuevos, duplicados, errores, resultados: detalles } = resultados;
-            
+
             let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
                 <div class="modal-glass">
                     <h2><i class="fas fa-file-import"></i> Resumen de importación</h2>
@@ -1121,7 +2435,242 @@
             document.getElementById('modalContainer').innerHTML = html;
         }
 
-        // ========== OBTENER FILAS FILTRADAS ==========
+        // ========== DROP ZONE ==========
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', function(e) {
+            if (!esAdmin()) return;
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', function(e) {
+            if (!esAdmin()) return;
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    procesarArchivoExcel(file);
+                } else if (file.name.endsWith('.json')) {
+                    procesarArchivoJSON(file);
+                } else {
+                    showToast('Por favor, sube un archivo Excel (.xlsx/.xls) o JSON (.json)', 'error');
+                }
+            }
+        });
+        dropZone.addEventListener('click', function(e) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
+            if (isTouchDevice) {
+                document.getElementById('fileInput').click();
+            }
+        });
+
+        // ========== RENDER TABLERO ==========
+        function renderBoard() {
+            const board = document.getElementById('boardContainer');
+            const statuses = ['Rojo', 'Amarillo', 'Verde', 'Entregado'];
+            const lotes = getLotes();
+            let html = '';
+            const isAdmin = esAdmin();
+
+            if (lotes.length === 0) {
+                board.innerHTML =
+                    `<div style="color:rgba(255,255,255,0.3); text-align:center; padding:3rem 0; font-size:1.1rem;">No hay lotes registrados. Agrega productos en la lista completa.</div>`;
+                actualizarBadge();
+                return;
+            }
+
+            statuses.forEach(st => {
+                const filtered = lotes.filter(l => l.status === st);
+                let colorClass = '';
+                if (st === 'Rojo') colorClass = 'col-red';
+                else if (st === 'Amarillo') colorClass = 'col-yellow';
+                else if (st === 'Verde') colorClass = 'col-green';
+                else if (st === 'Entregado') colorClass = 'col-delivered';
+                const statusLabel = st;
+                html += `<div class="column ${colorClass}" 
+                              ondragover="${isAdmin && !isTouchDevice ? 'permitirSoltar(event)' : ''}" 
+                              ondragleave="${isAdmin && !isTouchDevice ? 'salirColumna(event)' : ''}">
+                    <div class="column-header">
+                        <span class="status-label">${statusLabel}</span>
+                        <span style="font-size:0.7rem; opacity:0.5;">(${filtered.length})</span>
+                    </div>`;
+                if (filtered.length === 0) {
+                    html +=
+                        `<div style="color:rgba(255,255,255,0.3); text-align:center; padding:1.2rem 0; font-size:0.8rem;">Sin lotes</div>`;
+                } else {
+                    filtered.forEach(l => {
+                        const dias = getDiasAtraso(l.id);
+                        const extra = getAdditionalLight(l.status, dias);
+                        const prodCount = getProductosByLote(l.id).length;
+
+                        let folioDisplay = '';
+                        if (l.folio) {
+                            folioDisplay = `<span class="folio-tag"><i class="fas fa-tag"></i> ${l.folio}</span>`;
+                        } else {
+                            folioDisplay =
+                                `<span class="sin-folio"><i class="fas fa-circle" style="color:#a0aec0; font-size:0.5rem;"></i> Sin folio</span>`;
+                        }
+
+                        let actionBtns = '';
+                        actionBtns +=
+                            `<button class="btn-ver" onclick="event.stopPropagation(); verDetalleLote(${l.id})"><i class="fas fa-eye"></i> Ver</button>`;
+
+                        if (isAdmin) {
+                            if (l.status === 'Rojo' && !l.folio) {
+                                actionBtns +=
+                                    `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); openAsignarFolioModal(${l.id})"><i class="fas fa-tag"></i> Asignar folio</button>`;
+                            } else if (l.status === 'Amarillo') {
+                                actionBtns +=
+                                    `<button class="btn btn-success btn-sm" onclick="event.stopPropagation(); openLiberarModal(${l.id})"><i class="fas fa-check-double"></i> Liberar folio</button>`;
+                            } else if (l.status === 'Verde') {
+                                actionBtns +=
+                                    `<button class="btn btn-gray btn-sm" onclick="event.stopPropagation(); openEntregarModal(${l.id})"><i class="fas fa-box"></i> Marcar como Entregado</button>`;
+                            }
+                        }
+
+                        let retrasoHtml = '';
+                        if (extra) {
+                            retrasoHtml =
+                                `<div class="retraso-indicator"><span class="light-blue"></span> Retraso</div>`;
+                        }
+
+                        let dragAttrs = '';
+                        const cardClass = isAdmin ? '' : 'readonly';
+                        if (!isTouchDevice && isAdmin) {
+                            dragAttrs = `draggable="true" 
+                                        ondragstart="iniciarDragMouse(event, ${l.id})" 
+                                        ondragend="terminarDragMouse(event)" 
+                                        onmousemove="moverDragMouse(event)"`;
+                        } else if (isTouchDevice && isAdmin) {
+                            dragAttrs = `ontouchstart="iniciarTouchDrag(event, ${l.id})" 
+                                        ontouchmove="moverTouchDrag(event)"`;
+                        }
+
+                        html += `<div class="folio-card ${cardClass}" 
+                                   ${dragAttrs}>
+                            <div class="folio-id">
+                                ${folioDisplay}
+                                <small>${prodCount} art.</small>
+                            </div>
+                            <div class="lote-info">
+                                <span><i class="fas fa-box"></i> Lote #${l.id}</span>
+                                <span><i class="fas fa-clock"></i> ${dias} días</span>
+                            </div>
+                            ${retrasoHtml}
+                            <div class="responsable"><i class="fas fa-user-tie"></i> ${getResponsable(l.status)}</div>
+                            ${l.fechaEntrega ? `<div class="entrega-info"><i class="fas fa-calendar-check"></i> Entregado: ${new Date(l.fechaEntrega).toLocaleDateString()}</div>` : ''}
+                            <div class="acciones-tarjeta">
+                                ${actionBtns}
+                            </div>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+            board.innerHTML = html;
+            actualizarBadge();
+        }
+
+        function permitirSoltar(e) {
+            e.preventDefault();
+            if (!esAdmin() || isTouchDevice) return;
+            const column = e.target.closest('.column');
+            if (column) {
+                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+                column.classList.add('dragover');
+            }
+        }
+
+        function salirColumna(e) {
+            if (!esAdmin() || isTouchDevice) return;
+            const column = e.target.closest('.column');
+            if (column) {
+                column.classList.remove('dragover');
+            }
+        }
+
+        // ========== RENDER LISTA ==========
+        function renderList() {
+            let rows = getFilteredRows();
+            rows = ordenarProductos(rows);
+
+            const tbody = document.getElementById('tableBody');
+            const isAdmin = esAdmin();
+            if (rows.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="13" style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">No hay productos con esos filtros</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            rows.forEach(p => {
+                const st = p.status || 'Rojo';
+                const folio = p.folio || '—';
+                const isEditing = (editingRowId === p.id);
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+
+                if (isEditing && isAdmin) {
+                    html += `<tr class="editing" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>
+                            <select id="edit-lote-${p.id}">
+                                ${[...new Set(productos.map(p => p.loteId))].map(id => `<option value="${id}" ${id === p.loteId ? 'selected' : ''}>Lote #${id}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td><input type="text" id="edit-coma-${p.id}" value="${p.coma}"></td>
+                        <td><input type="number" id="edit-piezas-${p.id}" value="${p.piezas}"></td>
+                        <td><input type="text" id="edit-desc-${p.id}" value="${p.desc}"></td>
+                        <td><input type="text" id="edit-empaque-${p.id}" value="${p.empaque}"></td>
+                        <td><input type="text" id="edit-capacidad-${p.id}" value="${p.capacidad}"></td>
+                        <td><input type="text" id="edit-motivo-${p.id}" value="${p.motivo}"></td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—'}</td>
+                        <td>${extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—'}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon save" onclick="guardarEdicion(${p.id})" title="Guardar"><i class="fas fa-check"></i></button>
+                                <button class="btn-icon cancel" onclick="cancelarEdicion(${p.id})" title="Cancelar"><i class="fas fa-times"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                } else {
+                    const retrasoDisplay = extra ?
+                        `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` :
+                        '—';
+                    const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
+
+                    html += `<tr ondblclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>Lote #${p.loteId}</td>
+                        <td>${p.coma}</td>
+                        <td>${p.piezas}</td>
+                        <td>${p.desc}</td>
+                        <td>${p.empaque}</td>
+                        <td>${p.capacidad}</td>
+                        <td>${p.motivo}</td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${entrega}</td>
+                        <td>${retrasoDisplay}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon edit ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" title="${isAdmin ? 'Editar (doble clic)' : 'Solo lectura'}"><i class="fas fa-pen"></i></button>
+                                <button class="btn-icon danger ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `eliminarProducto(${p.id})` : ''}" title="${isAdmin ? 'Eliminar' : 'Solo lectura'}"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ========== FILTROS ==========
         function getFilteredRows() {
             const filterFolio = document.getElementById('filterFolio').value;
             const filterLote = document.getElementById('filterLote').value;
@@ -1137,12 +2686,12 @@
             const filterRetraso = document.getElementById('filterRetraso').value;
 
             return productos.filter(p => {
-                const st = getStatus(p.loteId);
-                const folio = getFolio(p.loteId) || 'Sin folio';
+                const st = p.status || 'Rojo';
+                const folio = p.folio || 'Sin folio';
                 const loteStr = `Lote #${p.loteId}`;
                 const responsable = getResponsable(st);
                 const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
-                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
                 const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
                 const tieneRetraso = extra ? 'Si' : 'No';
 
@@ -1162,7 +2711,6 @@
             });
         }
 
-        // ========== ACTUALIZAR OPCIONES DE FILTROS ==========
         function actualizarOpcionesFiltros() {
             const filterFolio = document.getElementById('filterFolio').value;
             const filterLote = document.getElementById('filterLote').value;
@@ -1178,12 +2726,12 @@
             const filterRetraso = document.getElementById('filterRetraso').value;
 
             const datosVisibles = productos.filter(p => {
-                const st = getStatus(p.loteId);
-                const folio = getFolio(p.loteId) || 'Sin folio';
+                const st = p.status || 'Rojo';
+                const folio = p.folio || 'Sin folio';
                 const loteStr = `Lote #${p.loteId}`;
                 const responsable = getResponsable(st);
                 const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
-                const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
+                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
                 const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
                 const tieneRetraso = extra ? 'Si' : 'No';
 
@@ -1202,24 +2750,23 @@
                 return true;
             });
 
-            const folios = [...new Set(datosVisibles.map(p => getFolio(p.loteId) || 'Sin folio'))].sort();
-            const lotesSet = [...new Set(datosVisibles.map(p => `Lote #${p.loteId}`))].sort((a,b) => {
-                const numA = parseInt(a.replace('Lote #',''));
-                const numB = parseInt(b.replace('Lote #',''));
+            const folios = [...new Set(datosVisibles.map(p => p.folio || 'Sin folio'))].sort();
+            const lotesSet = [...new Set(datosVisibles.map(p => `Lote #${p.loteId}`))].sort((a, b) => {
+                const numA = parseInt(a.replace('Lote #', ''));
+                const numB = parseInt(b.replace('Lote #', ''));
                 return numA - numB;
             });
             const comas = [...new Set(datosVisibles.map(p => p.coma))].sort();
-            const piezas = [...new Set(datosVisibles.map(p => String(p.piezas)))].sort((a,b) => parseInt(a)-parseInt(b));
+            const piezas = [...new Set(datosVisibles.map(p => String(p.piezas)))].sort((a, b) => parseInt(a) - parseInt(
+            b));
             const descs = [...new Set(datosVisibles.map(p => p.desc))].sort();
             const empaques = [...new Set(datosVisibles.map(p => p.empaque))].sort();
             const capacidades = [...new Set(datosVisibles.map(p => p.capacidad))].sort();
             const motivos = [...new Set(datosVisibles.map(p => p.motivo))].sort();
-            const responsables = [...new Set(datosVisibles.map(p => getResponsable(getStatus(p.loteId))))].sort();
+            const responsables = [...new Set(datosVisibles.map(p => getResponsable(p.status || 'Rojo')))].sort();
             const fechas = [...new Set(datosVisibles.map(p => new Date(p.fechaRegistro).toLocaleDateString()))].sort();
-            const entregas = [...new Set(datosVisibles.map(p => {
-                const l = getLote(p.loteId);
-                return l?.fechaEntrega ? new Date(l.fechaEntrega).toLocaleDateString() : '—';
-            }))].sort();
+            const entregas = [...new Set(datosVisibles.map(p => p.fechaEntrega ? new Date(p.fechaEntrega)
+                .toLocaleDateString() : '—'))].sort();
 
             const selects = {
                 filterFolio: folios,
@@ -1246,7 +2793,6 @@
                 if (!select) return;
                 const currentVal = currentValues[id] || '';
                 const options = selects[id] || [];
-                
                 select.innerHTML = '<option value="">Todos</option>';
                 options.forEach(val => {
                     const opt = document.createElement('option');
@@ -1254,7 +2800,6 @@
                     opt.textContent = val;
                     select.appendChild(opt);
                 });
-                
                 if (currentVal && options.includes(currentVal)) {
                     select.value = currentVal;
                 } else {
@@ -1270,306 +2815,21 @@
             }
         }
 
-        // ========== APLICAR FILTROS ==========
         function aplicarFiltros() {
             editingRowId = null;
             renderList();
             actualizarOpcionesFiltros();
+            guardarDatosPersistentes();
         }
 
-        // ========== LIMPIAR TODOS LOS FILTROS ==========
         function limpiarTodosLosFiltros() {
             document.querySelectorAll('.filter-select').forEach(sel => sel.value = '');
             aplicarFiltros();
         }
 
-        // ========== DRAG & DROP TARJETAS ==========
-        let draggedCardId = null;
-        let dragGhost = null;
-
-        function iniciarDrag(e, loteId) {
-            draggedCardId = loteId;
-            const card = e.target.closest('.folio-card');
-            if (card) {
-                card.classList.add('dragging');
-                dragGhost = card.cloneNode(true);
-                dragGhost.classList.add('drag-overlay');
-                dragGhost.style.width = card.offsetWidth + 'px';
-                dragGhost.style.position = 'fixed';
-                dragGhost.style.pointerEvents = 'none';
-                dragGhost.style.opacity = '0.8';
-                dragGhost.style.transform = 'rotate(-3deg) scale(1.05)';
-                dragGhost.style.zIndex = '1000';
-                document.body.appendChild(dragGhost);
-                
-                const rect = card.getBoundingClientRect();
-                dragGhost.style.left = (e.clientX - rect.width/2) + 'px';
-                dragGhost.style.top = (e.clientY - rect.height/2) + 'px';
-                
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', loteId);
-            }
-        }
-
-        function terminarDrag(e) {
-            if (dragGhost) {
-                dragGhost.remove();
-                dragGhost = null;
-            }
-            document.querySelectorAll('.folio-card.dragging').forEach(c => c.classList.remove('dragging'));
-            document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
-            draggedCardId = null;
-        }
-
-        function soltarTarjeta(e) {
-            e.preventDefault();
-            const targetColumn = e.target.closest('.column');
-            if (!targetColumn) {
-                terminarDrag(e);
-                return;
-            }
-
-            const loteId = parseInt(e.dataTransfer.getData('text/plain'));
-            if (isNaN(loteId)) {
-                terminarDrag(e);
-                return;
-            }
-
-            const columnaStatus = targetColumn.querySelector('.status-label')?.textContent;
-            if (!columnaStatus) {
-                terminarDrag(e);
-                return;
-            }
-
-            const lote = getLote(loteId);
-            if (!lote) {
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === columnaStatus) {
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Rojo' && columnaStatus === 'Amarillo' && !lote.folio) {
-                alert('Para mover a Amarillo, primero debes asignar un folio al lote.');
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Rojo' && (columnaStatus === 'Verde' || columnaStatus === 'Entregado')) {
-                alert('No puedes saltar de Rojo a Verde o Entregado. Primero debes pasar por Amarillo.');
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Amarillo' && columnaStatus === 'Rojo') {
-                alert('No puedes mover un lote de Amarillo a Rojo.');
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Amarillo' && columnaStatus === 'Entregado') {
-                alert('No puedes saltar de Amarillo a Entregado. Primero debes pasar por Verde.');
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Verde' && (columnaStatus === 'Rojo' || columnaStatus === 'Amarillo')) {
-                alert('No puedes mover un lote de Verde a Rojo o Amarillo.');
-                terminarDrag(e);
-                return;
-            }
-
-            if (lote.status === 'Entregado') {
-                alert('Un lote entregado no puede cambiar de estado.');
-                terminarDrag(e);
-                return;
-            }
-
-            lote.status = columnaStatus;
-            lote.fechaCreacion = new Date().toISOString();
-
-            if (columnaStatus === 'Verde' && !lote.fechaEntrega) {
-                lote.fechaEntrega = new Date().toISOString();
-            }
-
-            if (columnaStatus === 'Entregado' && !lote.fechaEntrega) {
-                lote.fechaEntrega = new Date().toISOString();
-            }
-
-            terminarDrag(e);
-            renderBoard();
-            aplicarFiltros();
-        }
-
-        function permitirSoltar(e) {
-            e.preventDefault();
-            const column = e.target.closest('.column');
-            if (column) {
-                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
-                column.classList.add('dragover');
-            }
-        }
-
-        function salirColumna(e) {
-            const column = e.target.closest('.column');
-            if (column) {
-                column.classList.remove('dragover');
-            }
-        }
-
-        // ========== RENDER TABLERO ==========
-        function renderBoard() {
-            const board = document.getElementById('boardContainer');
-            const statuses = ['Rojo', 'Amarillo', 'Verde', 'Entregado'];
-            let html = '';
-            statuses.forEach(st => {
-                const filtered = lotes.filter(l => l.status === st);
-                let colorClass = '';
-                if (st === 'Rojo') colorClass = 'col-red';
-                else if (st === 'Amarillo') colorClass = 'col-yellow';
-                else if (st === 'Verde') colorClass = 'col-green';
-                else if (st === 'Entregado') colorClass = 'col-delivered';
-                
-                const statusLabel = st;
-                html += `<div class="column ${colorClass}" 
-                              ondragover="permitirSoltar(event)" 
-                              ondrop="soltarTarjeta(event)" 
-                              ondragleave="salirColumna(event)">
-                    <div class="column-header">
-                        <span class="status-label">${statusLabel}</span>
-                        <span style="font-size:0.7rem; opacity:0.5;">(${filtered.length})</span>
-                    </div>`;
-                if (filtered.length === 0) {
-                    html += `<div style="color:rgba(255,255,255,0.3); text-align:center; padding:1.2rem 0; font-size:0.8rem;">Sin lotes</div>`;
-                } else {
-                    filtered.forEach(l => {
-                        const dias = getDiasAtraso(l.id);
-                        const extra = getAdditionalLight(l.status, dias);
-                        const prodCount = getProductosByLote(l.id).length;
-
-                        let folioDisplay = '';
-                        if (l.folio) {
-                            folioDisplay = `<span class="folio-tag"><i class="fas fa-tag"></i> ${l.folio}</span>`;
-                        } else {
-                            folioDisplay = `<span class="sin-folio"><i class="fas fa-circle" style="color:#a0aec0; font-size:0.5rem;"></i> Sin folio</span>`;
-                        }
-
-                        let actionBtn = '';
-                        if (l.status === 'Rojo' && !l.folio) {
-                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); openAsignarFolioModal(${l.id})"><i class="fas fa-tag"></i> Asignar folio</button></div>`;
-                        } else if (l.status === 'Amarillo') {
-                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-success btn-sm" onclick="event.stopPropagation(); openLiberarModal(${l.id})"><i class="fas fa-check-double"></i> Liberar folio</button></div>`;
-                        } else if (l.status === 'Verde') {
-                            actionBtn = `<div style="margin-top: 6px;"><button class="btn btn-gray btn-sm" onclick="event.stopPropagation(); openEntregarModal(${l.id})"><i class="fas fa-box"></i> Marcar como Entregado</button></div>`;
-                        }
-
-                        let retrasoHtml = '';
-                        if (extra) {
-                            retrasoHtml = `<div class="retraso-indicator"><span class="light-blue"></span> Retraso</div>`;
-                        }
-
-                        html += `<div class="folio-card" 
-                                   draggable="true" 
-                                   ondragstart="iniciarDrag(event, ${l.id})" 
-                                   ondragend="terminarDrag(event)"
-                                   onclick="verDetalleLote(${l.id})">
-                            <div class="folio-id">
-                                ${folioDisplay}
-                                <small>${prodCount} art.</small>
-                            </div>
-                            <div class="lote-info">
-                                <span><i class="fas fa-box"></i> Lote #${l.id}</span>
-                                <span><i class="fas fa-clock"></i> ${dias} días</span>
-                            </div>
-                            ${retrasoHtml}
-                            <div class="responsable"><i class="fas fa-user-tie"></i> ${getResponsable(st)}</div>
-                            ${l.fechaEntrega ? `<div class="entrega-info"><i class="fas fa-calendar-check"></i> Entregado: ${new Date(l.fechaEntrega).toLocaleDateString()}</div>` : ''}
-                            ${actionBtn}
-                        </div>`;
-                    });
-                }
-                html += `</div>`;
-            });
-            board.innerHTML = html;
-            actualizarBadge();
-        }
-
-        // ========== RENDER LISTA ==========
-        function renderList() {
-            const rows = getFilteredRows();
-
-            const tbody = document.getElementById('tableBody');
-            if (rows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">No hay productos con esos filtros</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            rows.forEach(p => {
-                const st = getStatus(p.loteId);
-                const folio = getFolio(p.loteId) || '—';
-                const isEditing = (editingRowId === p.id);
-                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
-
-                if (isEditing) {
-                    html += `<tr class="editing" data-id="${p.id}">
-                        <td><strong>${folio}</strong></td>
-                        <td>
-                            <select id="edit-lote-${p.id}">
-                                ${lotes.map(l => `<option value="${l.id}" ${l.id === p.loteId ? 'selected' : ''}>Lote #${l.id} ${l.folio ? '· '+l.folio : ''}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td><input type="text" id="edit-coma-${p.id}" value="${p.coma}"></td>
-                        <td><input type="number" id="edit-piezas-${p.id}" value="${p.piezas}"></td>
-                        <td><input type="text" id="edit-desc-${p.id}" value="${p.desc}"></td>
-                        <td><input type="text" id="edit-empaque-${p.id}" value="${p.empaque}"></td>
-                        <td><input type="text" id="edit-capacidad-${p.id}" value="${p.capacidad}"></td>
-                        <td><input type="text" id="edit-motivo-${p.id}" value="${p.motivo}"></td>
-                        <td>${getResponsable(st)}</td>
-                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
-                        <td>${getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—'}</td>
-                        <td>${extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—'}</td>
-                        <td>
-                            <div class="acciones">
-                                <button class="btn-icon save" onclick="guardarEdicion(${p.id})" title="Guardar"><i class="fas fa-check"></i></button>
-                                <button class="btn-icon cancel" onclick="cancelarEdicion(${p.id})" title="Cancelar"><i class="fas fa-times"></i></button>
-                            </div>
-                        </td>
-                    </tr>`;
-                } else {
-                    const retrasoDisplay = extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—';
-                    const entrega = getLote(p.loteId)?.fechaEntrega ? new Date(getLote(p.loteId).fechaEntrega).toLocaleDateString() : '—';
-                    
-                    html += `<tr ondblclick="iniciarEdicion(${p.id})" data-id="${p.id}">
-                        <td><strong>${folio}</strong></td>
-                        <td>Lote #${p.loteId}</td>
-                        <td>${p.coma}</td>
-                        <td>${p.piezas}</td>
-                        <td>${p.desc}</td>
-                        <td>${p.empaque}</td>
-                        <td>${p.capacidad}</td>
-                        <td>${p.motivo}</td>
-                        <td>${getResponsable(st)}</td>
-                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
-                        <td>${entrega}</td>
-                        <td>${retrasoDisplay}</td>
-                        <td>
-                            <div class="acciones">
-                                <button class="btn-icon edit" onclick="iniciarEdicion(${p.id})" title="Editar (doble clic)"><i class="fas fa-pen"></i></button>
-                                <button class="btn-icon danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    </tr>`;
-                }
-            });
-            tbody.innerHTML = html;
-        }
-
-        // ========== FUNCIONES DE EDICIÓN Y ELIMINACIÓN ==========
-        function iniciarEdicion(id) {
+        // ========== EDICIÓN ==========
+        async function iniciarEdicion(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para editar', 'error'); return; }
             if (editingRowId !== null && editingRowId !== id) {
                 cancelarEdicion(editingRowId);
             }
@@ -1581,7 +2841,8 @@
             }, 50);
         }
 
-        function guardarEdicion(id) {
+        async function guardarEdicion(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para guardar cambios', 'error'); return; }
             const prod = productos.find(p => p.id === id);
             if (!prod) return;
 
@@ -1594,19 +2855,11 @@
             const nuevoMotivo = document.getElementById(`edit-motivo-${id}`)?.value.trim() || '—';
 
             if (!nuevaComa) {
-                alert('El campo COMA no puede estar vacío');
+                showToast('El campo COMA no puede estar vacío', 'error');
                 return;
             }
 
-            if (!getLote(nuevoLoteId)) {
-                alert('El lote seleccionado no existe');
-                return;
-            }
-
-            if (prod.loteId !== nuevoLoteId) {
-                prod.loteId = nuevoLoteId;
-            }
-
+            prod.loteId = nuevoLoteId;
             prod.coma = nuevaComa;
             prod.piezas = nuevasPiezas;
             prod.desc = nuevaDesc;
@@ -1614,10 +2867,14 @@
             prod.capacidad = nuevaCapacidad;
             prod.motivo = nuevoMotivo;
             prod.fechaRegistro = prod.fechaRegistro || new Date().toISOString();
+            prod._version = (prod._version || 1) + 1;
 
             editingRowId = null;
-            aplicarFiltros();
-            renderBoard();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast('Producto actualizado correctamente', 'success');
+
+            await enviarOperacion('UPDATE', prod);
         }
 
         function cancelarEdicion(id) {
@@ -1627,38 +2884,40 @@
             }
         }
 
-        function eliminarProducto(id) {
+        async function eliminarProducto(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para eliminar', 'error'); return; }
             if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
-            
+
             const index = productos.findIndex(p => p.id === id);
             if (index === -1) return;
-            
+
             const prod = productos[index];
             const loteId = prod.loteId;
+
             productos.splice(index, 1);
-            
+
             const productosEnLote = getProductosByLote(loteId);
             if (productosEnLote.length === 0) {
-                if (confirm(`El lote #${loteId} se ha quedado sin productos. ¿Deseas eliminar también el lote?`)) {
-                    const loteIndex = lotes.findIndex(l => l.id === loteId);
-                    if (loteIndex !== -1) {
-                        lotes.splice(loteIndex, 1);
-                    }
-                }
+                showToast(`Lote #${loteId} eliminado porque no tiene productos`, 'info');
             }
-            
+
             if (editingRowId === id) editingRowId = null;
-            aplicarFiltros();
-            renderBoard();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast('Producto eliminado', 'success');
+
+            await enviarOperacion('DELETE', { id: id });
         }
 
-        // ========== VER DETALLE DE LOTE (MODAL) ==========
+        // ========== VER DETALLE ==========
         function verDetalleLote(loteId) {
             const items = getProductosByLote(loteId);
-            if (items.length === 0) return;
-            const st = getStatus(loteId);
-            const l = getLote(loteId);
-            const folio = l.folio || 'Sin folio';
+            if (items.length === 0) {
+                showToast('Este lote no tiene productos', 'info');
+                return;
+            }
+            const st = items[0].status || 'Rojo';
+            const folio = items[0].folio || 'Sin folio';
             let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
                 <div class="modal-glass">
                     <h2><i class="fas fa-box"></i> ${folio} · Lote #${loteId} · ${st}</h2>
@@ -1667,7 +2926,8 @@
                             <thead><tr><th style="color:#8a9ab0;">COMA</th><th style="color:#8a9ab0;">Piezas</th><th style="color:#8a9ab0;">Descripción</th><th style="color:#8a9ab0;">Motivo</th></tr></thead>
                             <tbody>`;
             items.forEach(p => {
-                html += `<tr><td>${p.coma}</td><td>${p.piezas}</td><td>${p.desc}</td><td>${p.motivo}</td></tr>`;
+                html +=
+                    `<tr><td>${p.coma}</td><td>${p.piezas}</td><td>${p.desc}</td><td>${p.motivo}</td></tr>`;
             });
             html += `</tbody></table></div>
                     <div class="modal-actions"><button class="btn close-btn" onclick="cerrarModal()">Cerrar</button></div>
@@ -1678,11 +2938,14 @@
 
         function cerrarModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
-        // ========== AGREGAR PRODUCTO A LOTE ==========
+        // ========== AGREGAR PRODUCTO ==========
         function openAgregarProductoModal() {
-            let loteOptions = lotes.map(l =>
-                `<option value="${l.id}">Lote #${l.id} ${l.folio ? '· '+l.folio : ''} (${l.status})</option>`).join('');
+            if (!esAdmin()) { showToast('No tienes permisos para agregar productos', 'error'); return; }
+            let lotesIds = [...new Set(productos.map(p => p.loteId))];
+            let loteOptions = lotesIds.map(id =>
+                `<option value="${id}">Lote #${id}</option>`).join('');
             if (loteOptions) loteOptions = `<option value="">Seleccionar lote existente</option>` + loteOptions;
+
             let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
                 <div class="modal-glass">
                     <h2><i class="fas fa-plus"></i> Agregar producto a lote</h2>
@@ -1691,14 +2954,15 @@
                     <div style="margin:0.5rem 0;"><button class="btn" onclick="crearNuevoLoteEnModal()" style="font-size:0.7rem;">+ Crear nuevo lote</button></div>
                     <div id="nuevoLoteContainer" style="display:none;">
                         <label>Nuevo lote ID (automático)</label>
-                        <input type="text" id="nuevoLoteId" value="Nuevo Lote #${nextLoteId}" disabled>
+                        <input type="text" id="nuevoLoteId" value="Nuevo Lote #${nextProdId}" disabled>
                     </div>
-                    <label>COMA</label><input type="text" id="prodComa" placeholder="C-001">
-                    <label>Piezas</label><input type="number" id="prodPiezas" placeholder="100">
-                    <label>Descripción</label><input type="text" id="prodDesc" placeholder="Descripción">
-                    <label>Empaque</label><input type="text" id="prodEmpaque" placeholder="Caja">
-                    <label>Capacidad</label><input type="text" id="prodCapacidad" placeholder="500 pzs">
-                    <label>Motivo</label><input type="text" id="prodMotivo" placeholder="Donación">
+                    <label>COMA</label><input type="text" id="prodComa" placeholder="Código COMA">
+                    <label>Piezas</label><input type="number" id="prodPiezas" placeholder="# Piezas">
+                    <label>Descripción</label><input type="text" id="prodDesc" placeholder="Producto">
+                    <label>Empaque</label><input type="text" id="prodEmpaque" placeholder="Tipo de Empaque">
+                    <label>Capacidad</label><input type="text" id="prodCapacidad" placeholder="Capacidad del Empaque">
+                    <label>Motivo</label><input type="text" id="prodMotivo" placeholder="Indicar motivo">
+                    <label>Folio (opcional)</label><input type="text" id="prodFolio" placeholder="Folio del lote">
                     <div class="modal-actions">
                         <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
                         <button class="btn btn-primary" onclick="confirmarAgregarProducto()">Agregar</button>
@@ -1712,31 +2976,40 @@
             const container = document.getElementById('nuevoLoteContainer');
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                document.getElementById('nuevoLoteId').value = `Nuevo Lote #${nextLoteId}`;
+                document.getElementById('nuevoLoteId').value = `Nuevo Lote #${nextProdId}`;
             } else {
                 container.style.display = 'none';
             }
         }
 
-        function confirmarAgregarProducto() {
+        async function confirmarAgregarProducto() {
+            if (!esAdmin()) return;
             const loteSelect = document.getElementById('loteSelect');
             let loteId = loteSelect.value;
             const crearNuevo = document.getElementById('nuevoLoteContainer').style.display === 'block';
+            const folio = document.getElementById('prodFolio').value.trim() || null;
+
             if (crearNuevo || !loteId) {
-                loteId = nextLoteId++;
-                lotes.push({ id: loteId, folio: null, status: 'Rojo', fechaCreacion: new Date().toISOString(),
-                    fechaEntrega: null });
+                loteId = nextProdId;
             } else {
                 loteId = parseInt(loteId);
             }
+
             const coma = document.getElementById('prodComa').value.trim();
             const piezas = parseInt(document.getElementById('prodPiezas').value) || 0;
             const desc = document.getElementById('prodDesc').value.trim() || 'Sin descripción';
             const empaque = document.getElementById('prodEmpaque').value.trim() || '—';
             const capacidad = document.getElementById('prodCapacidad').value.trim() || '—';
             const motivo = document.getElementById('prodMotivo').value.trim() || '—';
-            if (!coma) { alert('El campo COMA es obligatorio'); return; }
-            productos.push({
+
+            if (!coma) { showToast('El campo COMA es obligatorio', 'error'); return; }
+
+            const existingProducts = productos.filter(p => p.loteId === loteId);
+            const tieneFolioExistente = existingProducts.some(p => p.folio);
+            const status = (folio || tieneFolioExistente) ? 'Amarillo' : 'Rojo';
+            const finalStatus = (folio && existingProducts.length === 0) ? 'Amarillo' : status;
+
+            const nuevoProducto = {
                 id: nextProdId++,
                 loteId: loteId,
                 coma: coma,
@@ -1745,24 +3018,35 @@
                 empaque: empaque,
                 capacidad: capacidad,
                 motivo: motivo,
-                fechaRegistro: new Date().toISOString()
-            });
+                folio: folio || null,
+                status: finalStatus,
+                fechaRegistro: new Date().toISOString(),
+                fechaEntrega: null,
+                _version: 1
+            };
+
+            productos.push(nuevoProducto);
             cerrarModal();
-            aplicarFiltros();
-            renderBoard();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast('Producto agregado correctamente', 'success');
+
+            await enviarOperacion('INSERT', nuevoProducto);
         }
 
         // ========== ASIGNAR FOLIO ==========
         function openAsignarFolioModal(loteIdSeleccionado = null) {
+            if (!esAdmin()) { showToast('No tienes permisos para asignar folios', 'error'); return; }
+            const lotes = getLotes();
             let rojosSinFolio = lotes.filter(l => l.status === 'Rojo' && !l.folio);
             if (rojosSinFolio.length === 0) {
-                alert('No hay lotes en estado Rojo sin folio para asignar.');
+                showToast('No hay lotes en estado Rojo sin folio para asignar.', 'info');
                 return;
             }
             if (loteIdSeleccionado) {
                 rojosSinFolio = rojosSinFolio.filter(l => l.id === loteIdSeleccionado);
                 if (rojosSinFolio.length === 0) {
-                    alert('Ese lote ya no está en Rojo sin folio o no existe.');
+                    showToast('Ese lote ya no está en Rojo sin folio o no existe.', 'error');
                     return;
                 }
             }
@@ -1774,8 +3058,8 @@
                     <p style="color:#8a9ab0; margin-bottom:0.5rem;">El folio se asignará a todos los productos de este lote.</p>
                     <label>Seleccionar lote en Rojo sin folio</label>
                     <select id="asignarLoteSelect">${options}</select>
-                    <label>Nuevo folio (ej. F-001)</label>
-                    <input type="text" id="nuevoFolioInput" placeholder="F-XXX" value="F-${String(lotes.filter(l=>l.status==='Rojo' && !l.folio).length+1).padStart(3,'0')}">
+                    <label>Nuevo folio</label>
+                    <input type="text" id="nuevoFolioInput" placeholder="Ingresar Folio" value="">
                     <div class="modal-actions">
                         <button class="btn close-btn" onclick="cerrarModal()">Cancelar</button>
                         <button class="btn btn-warning" onclick="confirmarAsignarFolio()">Asignar y pasar a Amarillo</button>
@@ -1785,35 +3069,55 @@
             document.getElementById('modalContainer').innerHTML = html;
         }
 
-        function confirmarAsignarFolio() {
+        async function confirmarAsignarFolio() {
+            if (!esAdmin()) return;
             const loteId = parseInt(document.getElementById('asignarLoteSelect').value);
             const nuevoFolio = document.getElementById('nuevoFolioInput').value.trim();
-            if (!nuevoFolio) { alert('Ingrese un folio'); return; }
-            if (lotes.some(l => l.folio === nuevoFolio)) {
-                alert('Ese folio ya está asignado a otro lote.');
+            if (!nuevoFolio) { showToast('Ingrese un folio', 'error'); return; }
+
+            const folioExistente = productos.find(p => p.folio === nuevoFolio && p.loteId !== loteId);
+            if (folioExistente) {
+                showToast(`El folio "${nuevoFolio}" ya está asignado al Lote #${folioExistente.loteId}. No puede duplicarse.`,
+                    'error');
                 return;
             }
-            const l = getLote(loteId);
-            if (!l) return;
-            l.folio = nuevoFolio;
-            l.status = 'Amarillo';
-            l.fechaCreacion = new Date().toISOString();
+
+            const productosLote = productos.filter(p => p.loteId === loteId);
+            if (productosLote.length === 0) {
+                showToast('No hay productos en este lote', 'error');
+                return;
+            }
+
+            productosLote.forEach(p => {
+                p.folio = nuevoFolio;
+                p.status = 'Amarillo';
+                p.fechaRegistro = new Date().toISOString();
+                p._version = (p._version || 1) + 1;
+            });
+
             cerrarModal();
-            renderBoard();
-            aplicarFiltros();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast(`Folio ${nuevoFolio} asignado al Lote #${loteId}`, 'success');
+
+            for (const p of productosLote) {
+                await enviarOperacion('UPDATE', p);
+            }
         }
 
         // ========== LIBERAR FOLIO ==========
         function openLiberarModal(loteIdSeleccionado = null) {
+            if (!esAdmin()) { showToast('No tienes permisos para liberar folios', 'error'); return; }
+            const lotes = getLotes();
             let amarillos = lotes.filter(l => l.status === 'Amarillo');
             if (amarillos.length === 0) {
-                alert('No hay lotes en estado Amarillo para liberar.');
+                showToast('No hay lotes en estado Amarillo para liberar.', 'info');
                 return;
             }
             if (loteIdSeleccionado) {
                 amarillos = amarillos.filter(l => l.id === loteIdSeleccionado);
                 if (amarillos.length === 0) {
-                    alert('Ese lote ya no está en Amarillo o no existe.');
+                    showToast('Ese lote ya no está en Amarillo o no existe.', 'error');
                     return;
                 }
             }
@@ -1836,30 +3140,47 @@
             document.getElementById('modalContainer').innerHTML = html;
         }
 
-        function confirmarLiberar() {
+        async function confirmarLiberar() {
+            if (!esAdmin()) return;
             const loteId = parseInt(document.getElementById('liberarLoteSelect').value);
             const fechaEntrega = document.getElementById('fechaEntregaInput').value;
-            const l = getLote(loteId);
-            if (!l) return;
-            l.status = 'Verde';
-            l.fechaCreacion = new Date().toISOString();
-            l.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+
+            const productosLote = productos.filter(p => p.loteId === loteId);
+            if (productosLote.length === 0) {
+                showToast('No hay productos en este lote', 'error');
+                return;
+            }
+
+            productosLote.forEach(p => {
+                p.status = 'Verde';
+                p.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+                p.fechaRegistro = new Date().toISOString();
+                p._version = (p._version || 1) + 1;
+            });
+
             cerrarModal();
-            renderBoard();
-            aplicarFiltros();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast(`Lote #${loteId} liberado a Verde`, 'success');
+
+            for (const p of productosLote) {
+                await enviarOperacion('UPDATE', p);
+            }
         }
 
         // ========== MARCAR COMO ENTREGADO ==========
         function openEntregarModal(loteIdSeleccionado = null) {
+            if (!esAdmin()) { showToast('No tienes permisos para marcar como entregado', 'error'); return; }
+            const lotes = getLotes();
             let verdes = lotes.filter(l => l.status === 'Verde');
             if (verdes.length === 0) {
-                alert('No hay lotes en estado Verde para marcar como entregados.');
+                showToast('No hay lotes en estado Verde para marcar como entregados.', 'info');
                 return;
             }
             if (loteIdSeleccionado) {
                 verdes = verdes.filter(l => l.id === loteIdSeleccionado);
                 if (verdes.length === 0) {
-                    alert('Ese lote ya no está en Verde o no existe.');
+                    showToast('Ese lote ya no está en Verde o no existe.', 'error');
                     return;
                 }
             }
@@ -1882,100 +3203,318 @@
             document.getElementById('modalContainer').innerHTML = html;
         }
 
-        function confirmarEntregar() {
+        async function confirmarEntregar() {
+            if (!esAdmin()) return;
             const loteId = parseInt(document.getElementById('entregarLoteSelect').value);
             const fechaEntrega = document.getElementById('entregarFechaInput').value;
-            const l = getLote(loteId);
-            if (!l) return;
-            l.status = 'Entregado';
-            l.fechaCreacion = new Date().toISOString();
-            l.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+
+            const productosLote = productos.filter(p => p.loteId === loteId);
+            if (productosLote.length === 0) {
+                showToast('No hay productos en este lote', 'error');
+                return;
+            }
+
+            productosLote.forEach(p => {
+                p.status = 'Entregado';
+                p.fechaEntrega = fechaEntrega ? new Date(fechaEntrega).toISOString() : new Date().toISOString();
+                p.fechaRegistro = new Date().toISOString();
+                p._version = (p._version || 1) + 1;
+            });
+
             cerrarModal();
-            renderBoard();
-            aplicarFiltros();
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast(`Lote #${loteId} marcado como Entregado`, 'success');
+
+            for (const p of productosLote) {
+                await enviarOperacion('UPDATE', p);
+            }
         }
 
-        // ========== INICIALIZAR ==========
-        function inicializarDatos() {
-            const l1 = { id: nextLoteId++, folio: null, status: 'Rojo', fechaCreacion: new Date(Date.now() - 2 * 24 *
-                    3600000).toISOString(), fechaEntrega: null };
-            const l2 = { id: nextLoteId++, folio: 'F-001', status: 'Amarillo', fechaCreacion: new Date(Date.now() - 3 *
-                    24 * 3600000).toISOString(), fechaEntrega: null };
-            const l3 = { id: nextLoteId++, folio: 'F-002', status: 'Verde', fechaCreacion: new Date(Date.now() - 1 * 24 *
-                    3600000).toISOString(), fechaEntrega: new Date(Date.now() - 0.5 * 24 * 3600000).toISOString() };
-            const l4 = { id: nextLoteId++, folio: null, status: 'Rojo', fechaCreacion: new Date(Date.now() - 5 * 24 *
-                    3600000).toISOString(), fechaEntrega: null };
-            const l5 = { id: nextLoteId++, folio: 'F-003', status: 'Amarillo', fechaCreacion: new Date(Date.now() - 4 *
-                    24 * 3600000).toISOString(), fechaEntrega: null };
-            const l6 = { id: nextLoteId++, folio: 'F-004', status: 'Entregado', fechaCreacion: new Date(Date.now() - 0.5 *
-                    24 * 3600000).toISOString(), fechaEntrega: new Date(Date.now() - 0.3 * 24 * 3600000).toISOString() };
-            lotes = [l1, l2, l3, l4, l5, l6];
+        // ========== DRAG & DROP ==========
+        let dragGhost = null;
+        let dragLoteId = null;
+        let mouseDragActive = false;
 
-            productos = [
-                { id: nextProdId++, loteId: 1, coma: 'C-100', piezas: 120, desc: 'Tornillo M8', empaque: 'Caja 500',
-                    capacidad: '500 pzs', motivo: 'Sobrestock', fechaRegistro: new Date(Date.now() - 2 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 1, coma: 'C-101', piezas: 45, desc: 'Tuerca M8', empaque: 'Bolsa 100',
-                    capacidad: '100 pzs', motivo: 'Cambio modelo', fechaRegistro: new Date(Date.now() - 2 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 2, coma: 'C-202', piezas: 8, desc: 'Sensor óptico', empaque: 'Unidad',
-                    capacidad: '1 pz', motivo: 'Pedido especial', fechaRegistro: new Date(Date.now() - 3 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 3, coma: 'C-305', piezas: 60, desc: 'Resistencia 10K', empaque: 'Tubo 50',
-                    capacidad: '50 pzs', motivo: 'Donación', fechaRegistro: new Date(Date.now() - 1 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 4, coma: 'C-112', piezas: 200, desc: 'Arandela plana', empaque: 'Bolsa 200',
-                    capacidad: '200 pzs', motivo: 'Excedente', fechaRegistro: new Date(Date.now() - 5 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 5, coma: 'C-077', piezas: 15, desc: 'Válvula solenoide', empaque: 'Caja 5',
-                    capacidad: '5 pzs', motivo: 'Repuesto', fechaRegistro: new Date(Date.now() - 4 * 24 * 3600000)
-                        .toISOString() },
-                { id: nextProdId++, loteId: 6, coma: 'C-009', piezas: 32, desc: 'Cable UTP', empaque: 'Roll 30m',
-                    capacidad: '30 m', motivo: 'Donación', fechaRegistro: new Date(Date.now() - 0.5 * 24 * 3600000)
-                        .toISOString() },
-            ];
+        function iniciarDragMouse(e, loteId) {
+            if (isTouchDevice || !esAdmin()) { e.preventDefault(); return; }
+            e.preventDefault();
+            const card = e.target.closest('.folio-card');
+            if (!card) return;
+            mouseDragActive = true;
+            dragLoteId = loteId;
+            const rect = card.getBoundingClientRect();
+            dragGhost = card.cloneNode(true);
+            dragGhost.className = 'drag-clone';
+            dragGhost.style.position = 'fixed';
+            dragGhost.style.pointerEvents = 'none';
+            dragGhost.style.zIndex = '10000';
+            dragGhost.style.width = card.offsetWidth + 'px';
+            dragGhost.style.left = (e.clientX - rect.width / 2) + 'px';
+            dragGhost.style.top = (e.clientY - rect.height / 2) + 'px';
+            dragGhost.querySelectorAll('.btn, button, .btn-ver, .acciones-tarjeta').forEach(el => el.remove());
+            document.body.appendChild(dragGhost);
+            card.classList.add('dragging');
+        }
+
+        function moverDragMouse(e) {
+            if (isTouchDevice || !mouseDragActive || !dragGhost) return;
+            e.preventDefault();
+            dragGhost.style.left = (e.clientX - dragGhost.offsetWidth / 2) + 'px';
+            dragGhost.style.top = (e.clientY - dragGhost.offsetHeight / 2) + 'px';
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            const column = elements.find(el => el.classList && el.classList.contains('column'));
+            document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+            if (column) {
+                column.classList.add('dragover');
+            }
+        }
+
+        function terminarDragMouse(e) {
+            if (isTouchDevice || !mouseDragActive) return;
+            mouseDragActive = false;
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            const column = elements.find(el => el.classList && el.classList.contains('column'));
+            if (dragGhost) {
+                dragGhost.remove();
+                dragGhost = null;
+            }
+            document.querySelectorAll('.folio-card.dragging').forEach(c => c.classList.remove('dragging'));
+            document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+            if (column && dragLoteId !== null && esAdmin()) {
+                const columnaStatus = column.querySelector('.status-label')?.textContent;
+                if (columnaStatus) {
+                    const lote = getLote(dragLoteId);
+                    if (lote && lote.status === 'Rojo' && columnaStatus === 'Amarillo') {
+                        if (lote.folio) {
+                            procesarCambioEstado(dragLoteId, columnaStatus);
+                        } else {
+                            openAsignarFolioModal(dragLoteId);
+                        }
+                    } else {
+                        procesarCambioEstado(dragLoteId, columnaStatus);
+                    }
+                }
+            }
+            dragLoteId = null;
+        }
+
+        // Touch drag
+        let touchCardElement = null;
+        let touchLoteId = null;
+        let touchClone = null;
+        let isDraggingTouch = false;
+
+        if (isTouchDevice) {
+            document.addEventListener('touchmove', function(e) {
+                if (touchClone) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchend', function(e) {
+                if (touchCardElement && !isDraggingTouch) {
+                    const touch = e.changedTouches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (target && !target.closest('.btn') && !target.closest('.btn-ver') && !target.closest('button')) {
+                        if (touchLoteId !== null) {
+                            verDetalleLote(touchLoteId);
+                        }
+                    }
+                    touchCardElement = null;
+                    touchLoteId = null;
+                    return;
+                }
+                if (touchCardElement && isDraggingTouch) {
+                    const touch = e.changedTouches[0];
+                    if (touchClone) {
+                        touchClone.remove();
+                        touchClone = null;
+                    }
+                    if (touchCardElement) {
+                        touchCardElement.classList.remove('touch-dragging');
+                    }
+                    document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+                    if (touchLoteId !== null && esAdmin()) {
+                        const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+                        const column = elements.find(el => el.classList && el.classList.contains('column'));
+                        if (column) {
+                            const columnaStatus = column.querySelector('.status-label')?.textContent;
+                            if (columnaStatus) {
+                                const lote = getLote(touchLoteId);
+                                if (lote && lote.status === 'Rojo' && columnaStatus === 'Amarillo') {
+                                    if (lote.folio) {
+                                        procesarCambioEstado(touchLoteId, columnaStatus);
+                                    } else {
+                                        openAsignarFolioModal(touchLoteId);
+                                    }
+                                } else {
+                                    procesarCambioEstado(touchLoteId, columnaStatus);
+                                }
+                            }
+                        }
+                    }
+                    touchCardElement = null;
+                    touchLoteId = null;
+                    isDraggingTouch = false;
+                }
+            });
+        }
+
+        function iniciarTouchDrag(e, loteId) {
+            if (!isTouchDevice || !esAdmin()) return;
+            const target = e.target;
+            if (target.closest('.btn') || target.closest('.btn-ver') || target.closest('button')) {
+                return;
+            }
+            const touch = e.touches[0];
+            touchLoteId = loteId;
+            touchCardElement = e.currentTarget;
+            isDraggingTouch = false;
+            touchCardElement._touchStartX = touch.clientX;
+            touchCardElement._touchStartY = touch.clientY;
+        }
+
+        function moverTouchDrag(e) {
+            if (!isTouchDevice || !touchCardElement || !esAdmin()) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const dx = touch.clientX - touchCardElement._touchStartX;
+            const dy = touch.clientY - touchCardElement._touchStartY;
+            if (!isDraggingTouch && (Math.abs(dx) > 15 || Math.abs(dy) > 15)) {
+                isDraggingTouch = true;
+                touchClone = touchCardElement.cloneNode(true);
+                touchClone.style.position = 'fixed';
+                touchClone.style.pointerEvents = 'none';
+                touchClone.style.opacity = '0.85';
+                touchClone.style.transform = 'rotate(-2deg) scale(1.05)';
+                touchClone.style.zIndex = '1000';
+                touchClone.style.width = touchCardElement.offsetWidth + 'px';
+                touchClone.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
+                touchClone.style.borderRadius = '1.5rem';
+                touchClone.style.background = '#ffffff';
+                touchClone.querySelectorAll('.btn, button, .btn-ver, .acciones-tarjeta').forEach(el => el.remove());
+                document.body.appendChild(touchClone);
+                touchCardElement.classList.add('touch-dragging');
+                const rect = touchCardElement.getBoundingClientRect();
+                touchClone.style.left = (touch.clientX - rect.width / 2) + 'px';
+                touchClone.style.top = (touch.clientY - rect.height / 2) + 'px';
+            }
+            if (isDraggingTouch && touchClone) {
+                touchClone.style.left = (touch.clientX - touchClone.offsetWidth / 2) + 'px';
+                touchClone.style.top = (touch.clientY - touchClone.offsetHeight / 2) + 'px';
+                const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+                const column = elements.find(el => el.classList && el.classList.contains('column'));
+                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
+                if (column) {
+                    column.classList.add('dragover');
+                }
+            }
+        }
+
+        // ========== PROCESAR CAMBIO DE ESTADO ==========
+        async function procesarCambioEstado(loteId, nuevoStatus) {
+            if (!esAdmin()) { showToast('No tienes permisos para mover tarjetas', 'error'); return; }
+
+            const productosLote = productos.filter(p => p.loteId === loteId);
+            if (productosLote.length === 0) {
+                showToast('No hay productos en este lote', 'error');
+                return;
+            }
+
+            const statusActual = productosLote[0].status;
+            if (statusActual === nuevoStatus) return;
+
+            if (statusActual === 'Rojo' && nuevoStatus === 'Amarillo') {
+                const tieneFolio = productosLote.some(p => p.folio);
+                if (!tieneFolio) {
+                    showToast('Para mover a Amarillo, primero debes asignar un folio al lote.', 'error');
+                    return;
+                }
+            }
+
+            if (statusActual === 'Rojo' && (nuevoStatus === 'Verde' || nuevoStatus === 'Entregado')) {
+                showToast('No puedes saltar de Rojo a Verde o Entregado. Primero debes pasar por Amarillo.', 'error');
+                return;
+            }
+            if (statusActual === 'Amarillo' && nuevoStatus === 'Rojo') {
+                showToast('No puedes mover un lote de Amarillo a Rojo.', 'error');
+                return;
+            }
+            if (statusActual === 'Amarillo' && nuevoStatus === 'Entregado') {
+                showToast('No puedes saltar de Amarillo a Entregado. Primero debes pasar por Verde.', 'error');
+                return;
+            }
+            if (statusActual === 'Verde' && (nuevoStatus === 'Rojo' || nuevoStatus === 'Amarillo')) {
+                showToast('No puedes mover un lote de Verde a Rojo o Amarillo.', 'error');
+                return;
+            }
+            if (statusActual === 'Entregado') {
+                showToast('Un lote entregado no puede cambiar de estado.', 'error');
+                return;
+            }
+
+            productosLote.forEach(p => {
+                p.status = nuevoStatus;
+                if (nuevoStatus === 'Verde' || nuevoStatus === 'Entregado') {
+                    if (!p.fechaEntrega) {
+                        p.fechaEntrega = new Date().toISOString();
+                    }
+                }
+                p.fechaRegistro = new Date().toISOString();
+                p._version = (p._version || 1) + 1;
+            });
+
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast(`Lote #${loteId} movido a ${nuevoStatus}`, 'success');
+
+            for (const p of productosLote) {
+                await enviarOperacion('UPDATE', p);
+            }
         }
 
         // ========== EVENTOS ==========
         document.addEventListener('DOMContentLoaded', function() {
-            inicializarDatos();
-            
-            document.addEventListener('dragover', function(e) {
-                e.preventDefault();
-            });
-            
-            document.addEventListener('dragend', function(e) {
-                if (dragGhost) {
-                    dragGhost.remove();
-                    dragGhost = null;
-                }
-                document.querySelectorAll('.folio-card.dragging').forEach(c => c.classList.remove('dragging'));
-                document.querySelectorAll('.column.dragover').forEach(c => c.classList.remove('dragover'));
-                draggedCardId = null;
-            });
+            const sesionRestaurada = cargarSesionGuardada();
 
-            actualizarOpcionesFiltros();
-            renderBoard();
-            renderList();
+            if (!sesionRestaurada) {
+                document.getElementById('loginOverlay').classList.remove('hidden');
+                document.getElementById('appContainer').classList.remove('visible');
+                cargarDatosPersistentes();
+                if (productos.length === 0) inicializarDatosVacios();
+            }
+
+            if (!isTouchDevice) {
+                document.addEventListener('mousemove', moverDragMouse);
+                document.addEventListener('mouseup', terminarDragMouse);
+            }
 
             const tabs = document.querySelectorAll('.tab-btn');
             const contents = { tabBoard: document.getElementById('tabBoard'), tabList: document.getElementById(
                     'tabList') };
             tabs.forEach(btn => {
                 btn.addEventListener('click', function() {
-                    tabs.forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    const target = this.dataset.tab;
-                    Object.keys(contents).forEach(key => {
-                        contents[key].classList.toggle('active', key === target);
-                    });
-                    if (target === 'tabList') {
-                        editingRowId = null;
-                        actualizarOpcionesFiltros();
-                        renderList();
+                    if (this.dataset.tab === 'tabBoard' || this.dataset.tab === 'tabList') {
+                        tabs.forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        const target = this.dataset.tab;
+                        Object.keys(contents).forEach(key => {
+                            contents[key].classList.toggle('active', key === target);
+                        });
+                        if (target === 'tabList') {
+                            editingRowId = null;
+                            actualizarOpcionesFiltros();
+                            renderList();
+                        }
                     }
                 });
             });
+
+            const passwordContainer = document.getElementById('passwordContainer');
+            passwordContainer.style.display = 'block';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').textContent = '';
         });
     </script>
 </body>
