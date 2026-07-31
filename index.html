@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* ========== TODOS LOS ESTILOS IGUALES ========== */
+        /* ========== TODOS LOS ESTILOS ========== */
         * {
             margin: 0;
             padding: 0;
@@ -531,7 +531,7 @@
             border-collapse: collapse;
             color: #d0d8e8;
             font-size: 0.85rem;
-            min-width: 700px;
+            min-width: 750px;
         }
         th {
             text-align: left;
@@ -580,6 +580,7 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
             vertical-align: middle;
             font-size: 0.75rem;
+            color: #d0d8e8;
         }
         td .light-blue {
             display: inline-block;
@@ -1137,6 +1138,7 @@
                         <tr>
                             <th><span class="th-label"><i class="fas fa-hashtag"></i> Folio</span><select class="filter-select" id="filterFolio" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
                             <th><span class="th-label"><i class="fas fa-box"></i> Lote</span><select class="filter-select" id="filterLote" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
+                            <th><span class="th-label"><i class="fas fa-arrow-right"></i> Origen</span><select class="filter-select" id="filterOrigen" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
                             <th><span class="th-label"><i class="fas fa-code"></i> COMA</span><select class="filter-select" id="filterComa" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
                             <th><span class="th-label"><i class="fas fa-cube"></i> Piezas</span><select class="filter-select" id="filterPiezas" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
                             <th><span class="th-label"><i class="fas fa-tag"></i> Descripción</span><select class="filter-select" id="filterDesc" onchange="aplicarFiltros()"><option value="">Todos</option></select></th>
@@ -1182,7 +1184,6 @@
         const SOFT_SYNC_INTERVAL_MS = 4000;
 
         // ========== ORDEN - CÍCLICO ==========
-        // Estados: 0 = sin ordenar, 1 = Folio, 2 = Lote, 3 = COMA
         let ordenEstado = 0;
         const ORDEN_LABELS = ['', 'Folio ↑', 'Lote ↑', 'COMA ↑'];
         const ORDEN_CLASSES = ['', 'folio', 'lote', 'coma'];
@@ -1193,6 +1194,12 @@
         let sessionTimer = null;
         let tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
         let isLoggingOut = false;
+
+        // ========== ESTADO ==========
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        let productos = [];
+        let nextProdId = 1;
+        let editingRowId = null;
 
         function initSupabase() {
             try {
@@ -1214,6 +1221,126 @@
             setTimeout(() => { initSupabase(); }, 1000);
         }
 
+        // ========== FUNCIONES PARA AGRUPAR PRODUCTOS POR LOTE ==========
+        function getLotes() {
+            const lotesMap = new Map();
+            productos.forEach(p => {
+                const loteId = p.loteId || p.lote_id;
+                if (!lotesMap.has(loteId)) {
+                    const folio = p.folio || null;
+                    const status = p.status || 'Rojo';
+                    lotesMap.set(loteId, {
+                        id: loteId,
+                        folio: folio,
+                        status: status,
+                        fechaCreacion: p.fechaRegistro || p.fecha_registro || new Date().toISOString(),
+                        fechaEntrega: p.fechaEntrega || p.fecha_entrega || null,
+                        productos: []
+                    });
+                }
+                const lote = lotesMap.get(loteId);
+                if (p.folio && !lote.folio) {
+                    lote.folio = p.folio;
+                }
+                if (p.status && p.status !== lote.status) {
+                    if (lote.status === 'Rojo' && p.folio) {
+                        lote.status = 'Amarillo';
+                    }
+                    if (lote.status === 'Amarillo' && p.fechaEntrega) {
+                        lote.status = 'Verde';
+                    }
+                }
+                lote.productos.push(p);
+            });
+            return Array.from(lotesMap.values());
+        }
+
+        function getLote(id) {
+            const lotes = getLotes();
+            return lotes.find(l => l.id === id);
+        }
+
+        function getProductosByLote(loteId) {
+            return productos.filter(p => (p.loteId || p.lote_id) === loteId);
+        }
+
+        function getDiasAtraso(loteId) {
+            const l = getLote(loteId);
+            if (!l) return 0;
+            const diff = Date.now() - new Date(l.fechaCreacion).getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+
+        function getResponsable(status) {
+            if (status === 'Rojo') return 'Inventarios';
+            if (status === 'Amarillo') return 'Compras';
+            if (status === 'Verde') return 'Inventarios';
+            if (status === 'Entregado') return 'Donataria';
+            return '—';
+        }
+
+        function getAdditionalLight(status, dias) {
+            if (status === 'Rojo' && dias > 1) return 'blue';
+            if (status === 'Amarillo') {
+                const now = new Date();
+                const diasHastaViernes = (5 - now.getDay() + 7) % 7 || 7;
+                if (dias > diasHastaViernes) return 'blue';
+            }
+            if (status === 'Verde' && dias > 7) return 'blue';
+            return null;
+        }
+
+        function actualizarBadge() {
+            const lotes = getLotes();
+            document.getElementById('badgeFolio').innerHTML = `<i class="fas fa-boxes"></i> ${lotes.length} lotes`;
+        }
+
+        // ========== TOAST ==========
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' :
+                'fa-info-circle';
+            toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                toast.style.transition = '0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ========== FUNCIONES DE ESTADO ==========
+        function setSyncStatus(status, message) {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+            dot.className = 'sync-dot';
+            if (status === 'syncing') {
+                dot.classList.add('syncing');
+                text.textContent = message || 'Sincronizando...';
+            } else if (status === 'error') {
+                dot.classList.add('error');
+                text.textContent = message || 'Error';
+            } else if (status === 'realtime') {
+                dot.classList.add('realtime');
+                text.textContent = message || 'Tiempo real';
+            } else if (status === 'receiving') {
+                dot.classList.add('receiving');
+                text.textContent = message || 'Recibiendo...';
+            } else if (status === 'loading') {
+                dot.classList.add('loading');
+                text.textContent = message || 'Cargando...';
+            } else if (status === 'softsync') {
+                dot.classList.add('softsync');
+                text.textContent = message || 'Soft-sync...';
+            } else {
+                text.textContent = message || 'Conectado';
+            }
+        }
+
+        // ========== FUNCIONES DE SESIÓN ==========
         function cargarSesionGuardada() {
             const saved = localStorage.getItem('sessionData');
             if (saved) {
@@ -1343,7 +1470,6 @@
                 tiempoRestante = SESSION_TIMEOUT_MINUTES * 60;
             }
 
-            // Actualizar botón de orden según estado guardado
             actualizarBotonOrden();
 
             setupActivityListeners();
@@ -1473,103 +1599,6 @@
             guardarDatosPersistentes();
         }
 
-        // ========== ESTADO ==========
-        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        let productos = [];
-        let nextProdId = 1;
-        let editingRowId = null;
-
-        // ========== FUNCIONES PARA AGRUPAR PRODUCTOS POR LOTE ==========
-        function getLotes() {
-            const lotesMap = new Map();
-            productos.forEach(p => {
-                const loteId = p.loteId || p.lote_id;
-                if (!lotesMap.has(loteId)) {
-                    const folio = p.folio || null;
-                    const status = p.status || 'Rojo';
-                    lotesMap.set(loteId, {
-                        id: loteId,
-                        folio: folio,
-                        status: status,
-                        fechaCreacion: p.fechaRegistro || p.fecha_registro || new Date().toISOString(),
-                        fechaEntrega: p.fechaEntrega || p.fecha_entrega || null,
-                        productos: []
-                    });
-                }
-                const lote = lotesMap.get(loteId);
-                if (p.folio && !lote.folio) {
-                    lote.folio = p.folio;
-                }
-                if (p.status && p.status !== lote.status) {
-                    if (lote.status === 'Rojo' && p.folio) {
-                        lote.status = 'Amarillo';
-                    }
-                    if (lote.status === 'Amarillo' && p.fechaEntrega) {
-                        lote.status = 'Verde';
-                    }
-                }
-                lote.productos.push(p);
-            });
-            return Array.from(lotesMap.values());
-        }
-
-        function getLote(id) {
-            const lotes = getLotes();
-            return lotes.find(l => l.id === id);
-        }
-
-        function getProductosByLote(loteId) {
-            return productos.filter(p => (p.loteId || p.lote_id) === loteId);
-        }
-
-        function getDiasAtraso(loteId) {
-            const l = getLote(loteId);
-            if (!l) return 0;
-            const diff = Date.now() - new Date(l.fechaCreacion).getTime();
-            return Math.floor(diff / (1000 * 60 * 60 * 24));
-        }
-
-        function getResponsable(status) {
-            if (status === 'Rojo') return 'Inventarios';
-            if (status === 'Amarillo') return 'Compras';
-            if (status === 'Verde') return 'Inventarios';
-            if (status === 'Entregado') return 'Donataria';
-            return '—';
-        }
-
-        function getAdditionalLight(status, dias) {
-            if (status === 'Rojo' && dias > 1) return 'blue';
-            if (status === 'Amarillo') {
-                const now = new Date();
-                const diasHastaViernes = (5 - now.getDay() + 7) % 7 || 7;
-                if (dias > diasHastaViernes) return 'blue';
-            }
-            if (status === 'Verde' && dias > 7) return 'blue';
-            return null;
-        }
-
-        function actualizarBadge() {
-            const lotes = getLotes();
-            document.getElementById('badgeFolio').innerHTML = `<i class="fas fa-boxes"></i> ${lotes.length} lotes`;
-        }
-
-        // ========== TOAST ==========
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' :
-                'fa-info-circle';
-            toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-10px)';
-                toast.style.transition = '0.3s';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
         // ========== CARGA DE DATOS DESDE SUPABASE ==========
         async function cargarDatosDesdeSupabase() {
             if (!supabaseClient) {
@@ -1626,6 +1655,7 @@
                             motivo: p.motivo,
                             folio: loteInfo.folio,
                             status: loteInfo.status,
+                            origen: p.origen || null,
                             fechaRegistro: p.fecha_registro,
                             fechaEntrega: loteInfo.fechaEntrega,
                             _version: p.version || 1,
@@ -1720,6 +1750,7 @@
                         motivo: p.motivo,
                         folio: loteInfo.folio,
                         status: loteInfo.status,
+                        origen: p.origen || null,
                         fechaRegistro: p.fecha_registro,
                         fechaEntrega: loteInfo.fechaEntrega,
                         _version: p.version || 1,
@@ -1727,8 +1758,8 @@
                     };
                 });
 
-                const before = JSON.stringify(productos.map(p => [p.id, p._version, p.status, p.folio, p.coma]));
-                const after = JSON.stringify(nuevos.map(p => [p.id, p._version, p.status, p.folio, p.coma]));
+                const before = JSON.stringify(productos.map(p => [p.id, p._version, p.status, p.folio, p.coma, p.origen]));
+                const after = JSON.stringify(nuevos.map(p => [p.id, p._version, p.status, p.folio, p.coma, p.origen]));
                 if (before === after) {
                     setSyncStatus('realtime', 'Tiempo real conectado');
                     return;
@@ -1798,6 +1829,7 @@
                             capacidad: data.capacidad,
                             motivo: data.motivo,
                             folio: data.folio || null,
+                            origen: data.origen || null,
                             fecha_registro: data.fechaRegistro || now,
                             fecha_entrega: data.fechaEntrega || null,
                             status: data.status || 'Rojo',
@@ -1825,6 +1857,7 @@
                             capacidad: data.capacidad,
                             motivo: data.motivo,
                             folio: data.folio || null,
+                            origen: data.origen || null,
                             fecha_registro: data.fechaRegistro,
                             fecha_entrega: data.fechaEntrega || null,
                             status: data.status || 'Rojo',
@@ -1950,6 +1983,7 @@
                             capacidad: newRecord.capacidad,
                             motivo: newRecord.motivo,
                             folio: newRecord.folio || null,
+                            origen: newRecord.origen || null,
                             status: newRecord.status || 'Rojo',
                             fechaRegistro: newRecord.fecha_registro,
                             fechaEntrega: newRecord.fecha_entrega || null,
@@ -1977,6 +2011,7 @@
                             capacidad: newRecord.capacidad,
                             motivo: newRecord.motivo,
                             folio: newRecord.folio || null,
+                            origen: newRecord.origen || null,
                             status: newRecord.status || 'Rojo',
                             fechaRegistro: newRecord.fecha_registro,
                             fechaEntrega: newRecord.fecha_entrega || null,
@@ -1997,6 +2032,7 @@
                             capacidad: newRecord.capacidad,
                             motivo: newRecord.motivo,
                             folio: newRecord.folio || null,
+                            origen: newRecord.origen || null,
                             status: newRecord.status || 'Rojo',
                             fechaRegistro: newRecord.fecha_registro,
                             fechaEntrega: newRecord.fecha_entrega || null,
@@ -2039,39 +2075,10 @@
             actualizarBotonOrden();
         }
 
-        // ========== FUNCIONES DE ESTADO ==========
-        function setSyncStatus(status, message) {
-            const dot = document.getElementById('syncDot');
-            const text = document.getElementById('syncText');
-            dot.className = 'sync-dot';
-            if (status === 'syncing') {
-                dot.classList.add('syncing');
-                text.textContent = message || 'Sincronizando...';
-            } else if (status === 'error') {
-                dot.classList.add('error');
-                text.textContent = message || 'Error';
-            } else if (status === 'realtime') {
-                dot.classList.add('realtime');
-                text.textContent = message || 'Tiempo real';
-            } else if (status === 'receiving') {
-                dot.classList.add('receiving');
-                text.textContent = message || 'Recibiendo...';
-            } else if (status === 'loading') {
-                dot.classList.add('loading');
-                text.textContent = message || 'Cargando...';
-            } else if (status === 'softsync') {
-                dot.classList.add('softsync');
-                text.textContent = message || 'Soft-sync...';
-            } else {
-                text.textContent = message || 'Conectado';
-            }
-        }
-
         // ========== ORDENAR - VERSIÓN CÍCLICA ==========
         function ordenarLista() {
             if (!esAdmin()) { showToast('No tienes permisos para ordenar', 'error'); return; }
 
-            // Avanzar al siguiente estado (cíclico)
             ordenEstado = (ordenEstado + 1) % 4;
 
             actualizarBotonOrden();
@@ -2090,7 +2097,6 @@
             const btn = document.getElementById('btnOrdenar');
             if (!btn) return;
 
-            // Remover todas las clases de orden
             btn.classList.remove('activo', 'folio', 'lote', 'coma');
 
             if (ordenEstado === 0) {
@@ -2111,363 +2117,437 @@
             return [...productosList].sort((a, b) => {
                 let resultado = 0;
 
-                // 1. Orden por Folio (si el estado lo permite)
                 if (ordenEstado === 1 || ordenEstado >= 1) {
                     const folioA = a.folio || '';
                     const folioB = b.folio || '';
-
-                    // Los que tienen folio van primero
                     if (folioA === '' && folioB !== '') return 1;
                     if (folioA !== '' && folioB === '') return -1;
-
                     resultado = folioA.localeCompare(folioB);
                     if (resultado !== 0) return resultado;
                 }
 
-                // 2. Orden por Lote (si el estado lo permite)
                 if (ordenEstado === 2 || ordenEstado === 3) {
                     resultado = a.loteId - b.loteId;
                     if (resultado !== 0) return resultado;
                 }
 
-                // 3. Orden por COMA (si el estado lo permite)
                 if (ordenEstado === 3) {
                     resultado = a.coma.localeCompare(b.coma);
                     if (resultado !== 0) return resultado;
                 }
 
-                // Si todo es igual, por ID
                 return a.id - b.id;
             });
         }
 
-        // ========== PROCESAR IMPORTACIÓN (BULK INSERT) ==========
-        function procesarImportacion(data) {
-            let nuevos = 0;
-            let duplicados = 0;
-            let errores = 0;
-            let resultados = [];
+        // ========== RENDER LISTA CON ORIGEN ==========
+        function renderList() {
+            let rows = getFilteredRows();
+            rows = ordenarProductos(rows);
 
-            const lotesMap = new Map();
-
-            data.forEach(row => {
-                const coma = row['COMA'] || row['Coma'] || row['coma'] || '';
-                const piezas = parseInt(row['Piezas'] || row['piezas'] || 0);
-                const desc = row['Descripción'] || row['Descripcion'] || row['descripcion'] || row['desc'] ||
-                    'Sin descripción';
-                const empaque = row['Empaque'] || row['empaque'] || '—';
-                const capacidad = row['Capacidad'] || row['capacidad'] || '—';
-                const motivo = row['Motivo'] || row['motivo'] || '—';
-                let folio = row['Folio'] || row['folio'] || null;
-                if (folio !== null && folio !== '') {
-                    folio = String(folio).trim();
-                }
-                let loteStr = row['Lote'] || row['lote'] || null;
-                let loteNumero = null;
-                if (loteStr !== null && loteStr !== '') {
-                    const loteStrClean = String(loteStr).trim();
-                    const match = loteStrClean.match(/(\d+)/);
-                    if (match) {
-                        loteNumero = parseInt(match[1]);
-                    }
-                }
-
-                if (!coma) {
-                    errores++;
-                    resultados.push({ tipo: 'error', mensaje: 'Falta COMA en una fila' });
-                    return;
-                }
-
-                const existe = productos.find(p => p.coma === coma);
-                if (existe) {
-                    duplicados++;
-                    resultados.push({ tipo: 'duplicado', mensaje: `COMA "${coma}" ya existe` });
-                    return;
-                }
-
-                const loteId = loteNumero || nextProdId;
-
-                if (!lotesMap.has(loteId)) {
-                    lotesMap.set(loteId, {
-                        folio: folio,
-                        status: folio ? 'Amarillo' : 'Rojo',
-                        fechaEntrega: null
-                    });
-                } else {
-                    const loteInfo = lotesMap.get(loteId);
-                    if (folio && !loteInfo.folio) {
-                        loteInfo.folio = folio;
-                        if (loteInfo.status === 'Rojo') {
-                            loteInfo.status = 'Amarillo';
-                        }
-                    }
-                }
-
-                productos.push({
-                    id: nextProdId++,
-                    loteId: loteId,
-                    coma: coma,
-                    piezas: piezas,
-                    desc: desc,
-                    empaque: empaque,
-                    capacidad: capacidad,
-                    motivo: motivo,
-                    folio: folio,
-                    status: lotesMap.get(loteId).status,
-                    fechaRegistro: new Date().toISOString(),
-                    fechaEntrega: null,
-                    _version: 1
-                });
-                nuevos++;
-                resultados.push({ tipo: 'nuevo', mensaje: `Producto "${coma}" agregado al Lote #${loteId}${folio ? ' con folio '+folio : ''}` });
-            });
-
-            return { nuevos, duplicados, errores, resultados };
-        }
-
-        // ========== BULK INSERT PARALELO ==========
-        async function insertarProductosEnLote(productosNuevos) {
-            if (!esAdmin()) return;
-            if (productosNuevos.length === 0) return;
-
-            setSyncStatus('syncing', `Insertando ${productosNuevos.length} productos...`);
-            showToast(`⏳ Insertando ${productosNuevos.length} productos en Supabase...`, 'info');
-
-            const batchSize = 50;
-            let insertados = 0;
-            let errores = 0;
-
-            for (let i = 0; i < productosNuevos.length; i += batchSize) {
-                const batch = productosNuevos.slice(i, i + batchSize);
-                const promises = batch.map(p => enviarOperacion('INSERT', p));
-
-                const resultados = await Promise.allSettled(promises);
-                resultados.forEach(r => {
-                    if (r.status === 'fulfilled' && r.value) {
-                        insertados++;
-                    } else {
-                        errores++;
-                    }
-                });
-
-                console.log(`📦 Lote ${Math.floor(i/batchSize) + 1}: ${batch.length} productos, ${insertados} insertados`);
+            const tbody = document.getElementById('tableBody');
+            const isAdmin = esAdmin();
+            if (rows.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="14" style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">No hay productos con esos filtros</td></tr>`;
+                return;
             }
 
-            if (errores > 0) {
-                showToast(`⚠️ ${insertados} productos insertados, ${errores} errores`, 'error');
-            } else {
-                showToast(`✅ ${insertados} productos insertados correctamente`, 'success');
-            }
-
-            setSyncStatus('realtime', 'Tiempo real conectado');
-            actualizarUI();
-        }
-
-        // ========== EXCEL ==========
-        function exportarExcel() {
-            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
-            const data = [];
-            data.push(['Folio', 'Lote', 'COMA', 'Piezas', 'Descripción', 'Empaque', 'Capacidad', 'Motivo', 'Responsable',
-                'Fecha Registro', 'Fecha Entrega', 'Estado', 'Retraso'
-            ]);
-
-            productos.forEach(p => {
+            let html = '';
+            rows.forEach(p => {
                 const st = p.status || 'Rojo';
-                const folio = p.folio || '';
-                const loteStr = `Lote ${p.loteId}`;
+                const folio = p.folio || '—';
+                const isEditing = (editingRowId === p.id);
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                // ORIGEN: muestra el lote anterior y el folio (si lo tenía)
+                let origenDisplay = '—';
+                if (p.origen) {
+                    const folioOrigen = p.origen.folio || 'Sin folio';
+                    origenDisplay = `${folioOrigen} (Lote ${p.origen.loteId})`;
+                }
+
+                if (isEditing && isAdmin) {
+                    const lotesUnicos = [...new Set(productos.map(p => p.loteId))].sort((a, b) => a - b);
+                    let loteOptions = lotesUnicos.map(id =>
+                        `<option value="${id}" ${id === p.loteId ? 'selected' : ''}>Lote #${id}</option>`
+                    ).join('');
+
+                    html += `<tr class="editing" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>
+                            <select id="edit-lote-${p.id}" class="edit-lote-select">
+                                ${loteOptions}
+                                <option value="nuevo" style="color:#63b3ed; font-weight:bold;">+ Crear nuevo lote</option>
+                            </select>
+                        </td>
+                        <td>${origenDisplay}</td>
+                        <td><input type="text" id="edit-coma-${p.id}" value="${p.coma}"></td>
+                        <td><input type="number" id="edit-piezas-${p.id}" value="${p.piezas}"></td>
+                        <td><input type="text" id="edit-desc-${p.id}" value="${p.desc}"></td>
+                        <td><input type="text" id="edit-empaque-${p.id}" value="${p.empaque}"></td>
+                        <td><input type="text" id="edit-capacidad-${p.id}" value="${p.capacidad}"></td>
+                        <td><input type="text" id="edit-motivo-${p.id}" value="${p.motivo}"></td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—'}</td>
+                        <td>${extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—'}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon save" onclick="guardarEdicion(${p.id})" title="Guardar"><i class="fas fa-check"></i></button>
+                                <button class="btn-icon cancel" onclick="cancelarEdicion(${p.id})" title="Cancelar"><i class="fas fa-times"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                } else {
+                    const retrasoDisplay = extra ?
+                        `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` :
+                        '—';
+                    const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
+
+                    html += `<tr ondblclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" data-id="${p.id}">
+                        <td><strong>${folio}</strong></td>
+                        <td>Lote #${p.loteId}</td>
+                        <td>${origenDisplay}</td>
+                        <td>${p.coma}</td>
+                        <td>${p.piezas}</td>
+                        <td>${p.desc}</td>
+                        <td>${p.empaque}</td>
+                        <td>${p.capacidad}</td>
+                        <td>${p.motivo}</td>
+                        <td>${getResponsable(st)}</td>
+                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
+                        <td>${entrega}</td>
+                        <td>${retrasoDisplay}</td>
+                        <td>
+                            <div class="acciones">
+                                <button class="btn-icon edit ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" title="${isAdmin ? 'Editar (doble clic)' : 'Solo lectura'}"><i class="fas fa-pen"></i></button>
+                                <button class="btn-icon danger ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `eliminarProducto(${p.id})` : ''}" title="${isAdmin ? 'Eliminar' : 'Solo lectura'}"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            });
+            tbody.innerHTML = html;
+
+            if (isAdmin) {
+                document.querySelectorAll('.edit-lote-select').forEach(select => {
+                    select.addEventListener('change', function(e) {
+                        if (this.value === 'nuevo') {
+                            const id = this.id.replace('edit-lote-', '');
+                            crearNuevoLoteEnEdicion(id, this);
+                        }
+                    });
+                });
+            }
+        }
+
+        // ========== CREAR NUEVO LOTE DURANTE EDICIÓN ==========
+        function crearNuevoLoteEnEdicion(productId, selectElement) {
+            const nuevoLoteId = prompt('Ingrese el número del nuevo lote:');
+            if (nuevoLoteId && !isNaN(nuevoLoteId) && parseInt(nuevoLoteId) > 0) {
+                const loteNum = parseInt(nuevoLoteId);
+                const existe = productos.some(p => p.loteId === loteNum);
+                if (existe) {
+                    showToast(`El Lote #${loteNum} ya existe`, 'error');
+                    const prod = productos.find(p => p.id === parseInt(productId));
+                    selectElement.value = prod?.loteId || '';
+                    return;
+                }
+                const newOption = document.createElement('option');
+                newOption.value = loteNum;
+                newOption.textContent = `Lote #${loteNum}`;
+                selectElement.insertBefore(newOption, selectElement.querySelector('option[value="nuevo"]'));
+                selectElement.value = loteNum;
+                showToast(`✅ Lote #${loteNum} creado`, 'success');
+                actualizarSelectsLote(loteNum);
+            } else {
+                const prod = productos.find(p => p.id === parseInt(productId));
+                selectElement.value = prod?.loteId || '';
+            }
+        }
+
+        function actualizarSelectsLote(nuevoLoteId) {
+            document.querySelectorAll('.edit-lote-select').forEach(select => {
+                const existe = Array.from(select.options).some(opt => parseInt(opt.value) === nuevoLoteId);
+                if (!existe && select.querySelector('option[value="nuevo"]')) {
+                    const newOption = document.createElement('option');
+                    newOption.value = nuevoLoteId;
+                    newOption.textContent = `Lote #${nuevoLoteId}`;
+                    select.insertBefore(newOption, select.querySelector('option[value="nuevo"]'));
+                }
+            });
+        }
+
+        // ========== EDICIÓN CON ORIGEN - CORREGIDO ==========
+        async function iniciarEdicion(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para editar', 'error'); return; }
+            if (editingRowId !== null && editingRowId !== id) {
+                cancelarEdicion(editingRowId);
+            }
+            editingRowId = id;
+            renderList();
+            setTimeout(() => {
+                const firstInput = document.getElementById(`edit-coma-${id}`);
+                if (firstInput) firstInput.focus();
+            }, 50);
+        }
+
+        async function guardarEdicion(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para guardar cambios', 'error'); return; }
+            const prod = productos.find(p => p.id === id);
+            if (!prod) return;
+
+            const loteSelect = document.getElementById(`edit-lote-${id}`);
+            const nuevoLoteId = parseInt(loteSelect?.value);
+            const nuevaComa = document.getElementById(`edit-coma-${id}`)?.value.trim();
+            const nuevasPiezas = parseInt(document.getElementById(`edit-piezas-${id}`)?.value) || 0;
+            const nuevaDesc = document.getElementById(`edit-desc-${id}`)?.value.trim() || 'Sin descripción';
+            const nuevoEmpaque = document.getElementById(`edit-empaque-${id}`)?.value.trim() || '—';
+            const nuevaCapacidad = document.getElementById(`edit-capacidad-${id}`)?.value.trim() || '—';
+            const nuevoMotivo = document.getElementById(`edit-motivo-${id}`)?.value.trim() || '—';
+
+            if (!nuevaComa) {
+                showToast('El campo COMA no puede estar vacío', 'error');
+                return;
+            }
+
+            if (isNaN(nuevoLoteId) || nuevoLoteId <= 0) {
+                showToast('Seleccione un lote válido', 'error');
+                return;
+            }
+
+            const loteAnterior = prod.loteId;
+            const folioAnterior = prod.folio;
+
+            // SIEMPRE guardar origen si cambia de lote (con o sin folio)
+            if (loteAnterior !== nuevoLoteId) {
+                prod.origen = {
+                    loteId: loteAnterior,
+                    folio: folioAnterior || null  // Puede ser null si no tenía folio
+                };
+                // Si tenía folio, se lo quitamos
+                if (folioAnterior) {
+                    prod.folio = null;
+                    prod.status = 'Rojo';
+                    showToast(`📦 Producto movido del Lote #${loteAnterior} (${folioAnterior}) al Lote #${nuevoLoteId} - Sin folio`, 'info');
+                } else {
+                    // Si no tenía folio, solo se mueve y se registra el origen
+                    showToast(`📦 Producto movido del Lote #${loteAnterior} al Lote #${nuevoLoteId}`, 'info');
+                }
+            }
+
+            prod.loteId = nuevoLoteId;
+            prod.coma = nuevaComa;
+            prod.piezas = nuevasPiezas;
+            prod.desc = nuevaDesc;
+            prod.empaque = nuevoEmpaque;
+            prod.capacidad = nuevaCapacidad;
+            prod.motivo = nuevoMotivo;
+            prod.fechaRegistro = prod.fechaRegistro || new Date().toISOString();
+            prod._version = (prod._version || 1) + 1;
+
+            editingRowId = null;
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast('Producto actualizado correctamente', 'success');
+
+            await enviarOperacion('UPDATE', prod);
+        }
+
+        function cancelarEdicion(id) {
+            if (editingRowId === id) {
+                editingRowId = null;
+                renderList();
+            }
+        }
+
+        async function eliminarProducto(id) {
+            if (!esAdmin()) { showToast('No tienes permisos para eliminar', 'error'); return; }
+            if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+
+            const index = productos.findIndex(p => p.id === id);
+            if (index === -1) return;
+
+            const prod = productos[index];
+            const loteId = prod.loteId;
+
+            productos.splice(index, 1);
+
+            const productosEnLote = getProductosByLote(loteId);
+            if (productosEnLote.length === 0) {
+                showToast(`Lote #${loteId} eliminado porque no tiene productos`, 'info');
+            }
+
+            if (editingRowId === id) editingRowId = null;
+            guardarDatosPersistentes();
+            actualizarUI();
+            showToast('Producto eliminado', 'success');
+
+            await enviarOperacion('DELETE', { id: id });
+        }
+
+        // ========== FILTROS CON ORIGEN ==========
+        function getFilteredRows() {
+            const filterFolio = document.getElementById('filterFolio').value;
+            const filterLote = document.getElementById('filterLote').value;
+            const filterOrigen = document.getElementById('filterOrigen').value;
+            const filterComa = document.getElementById('filterComa').value;
+            const filterPiezas = document.getElementById('filterPiezas').value;
+            const filterDesc = document.getElementById('filterDesc').value;
+            const filterEmpaque = document.getElementById('filterEmpaque').value;
+            const filterCapacidad = document.getElementById('filterCapacidad').value;
+            const filterMotivo = document.getElementById('filterMotivo').value;
+            const filterResponsable = document.getElementById('filterResponsable').value;
+            const filterFecha = document.getElementById('filterFecha').value;
+            const filterEntrega = document.getElementById('filterEntrega').value;
+            const filterRetraso = document.getElementById('filterRetraso').value;
+
+            return productos.filter(p => {
+                const st = p.status || 'Rojo';
+                const folio = p.folio || 'Sin folio';
+                const loteStr = `Lote #${p.loteId}`;
+                const origenDisplay = p.origen ? `${p.origen.folio || 'Sin folio'} (Lote ${p.origen.loteId})` : '—';
                 const responsable = getResponsable(st);
                 const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
                 const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
-                const dias = getDiasAtraso(p.loteId);
-                const extra = getAdditionalLight(st, dias);
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
                 const tieneRetraso = extra ? 'Si' : 'No';
 
-                data.push([
-                    folio, loteStr, p.coma, p.piezas, p.desc, p.empaque, p.capacidad,
-                    p.motivo, responsable, fechaReg, entrega, st, tieneRetraso
-                ]);
+                if (filterFolio && folio !== filterFolio) return false;
+                if (filterLote && loteStr !== filterLote) return false;
+                if (filterOrigen && origenDisplay !== filterOrigen) return false;
+                if (filterComa && p.coma !== filterComa) return false;
+                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
+                if (filterDesc && p.desc !== filterDesc) return false;
+                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
+                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
+                if (filterMotivo && p.motivo !== filterMotivo) return false;
+                if (filterResponsable && responsable !== filterResponsable) return false;
+                if (filterFecha && fechaReg !== filterFecha) return false;
+                if (filterEntrega && entrega !== filterEntrega) return false;
+                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
+                return true;
+            });
+        }
+
+        function actualizarOpcionesFiltros() {
+            const filterFolio = document.getElementById('filterFolio').value;
+            const filterLote = document.getElementById('filterLote').value;
+            const filterOrigen = document.getElementById('filterOrigen').value;
+            const filterComa = document.getElementById('filterComa').value;
+            const filterPiezas = document.getElementById('filterPiezas').value;
+            const filterDesc = document.getElementById('filterDesc').value;
+            const filterEmpaque = document.getElementById('filterEmpaque').value;
+            const filterCapacidad = document.getElementById('filterCapacidad').value;
+            const filterMotivo = document.getElementById('filterMotivo').value;
+            const filterResponsable = document.getElementById('filterResponsable').value;
+            const filterFecha = document.getElementById('filterFecha').value;
+            const filterEntrega = document.getElementById('filterEntrega').value;
+            const filterRetraso = document.getElementById('filterRetraso').value;
+
+            const datosVisibles = productos.filter(p => {
+                const st = p.status || 'Rojo';
+                const folio = p.folio || 'Sin folio';
+                const loteStr = `Lote #${p.loteId}`;
+                const origenDisplay = p.origen ? `${p.origen.folio || 'Sin folio'} (Lote ${p.origen.loteId})` : '—';
+                const responsable = getResponsable(st);
+                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
+                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
+                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
+                const tieneRetraso = extra ? 'Si' : 'No';
+
+                if (filterFolio && folio !== filterFolio) return false;
+                if (filterLote && loteStr !== filterLote) return false;
+                if (filterOrigen && origenDisplay !== filterOrigen) return false;
+                if (filterComa && p.coma !== filterComa) return false;
+                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
+                if (filterDesc && p.desc !== filterDesc) return false;
+                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
+                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
+                if (filterMotivo && p.motivo !== filterMotivo) return false;
+                if (filterResponsable && responsable !== filterResponsable) return false;
+                if (filterFecha && fechaReg !== filterFecha) return false;
+                if (filterEntrega && entrega !== filterEntrega) return false;
+                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
+                return true;
             });
 
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            XLSX.utils.book_append_sheet(wb, ws, 'Productos');
-            ws['!cols'] = [
-                { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
-                { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
-                { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-                { wch: 8 }
-            ];
-            XLSX.writeFile(wb, 'Inventario_Lotes.xlsx');
-            showToast('Excel exportado correctamente', 'success');
-            guardarDatosPersistentes();
-        }
+            const folios = [...new Set(datosVisibles.map(p => p.folio || 'Sin folio'))].sort();
+            const lotesSet = [...new Set(datosVisibles.map(p => `Lote #${p.loteId}`))].sort((a, b) => {
+                const numA = parseInt(a.replace('Lote #', ''));
+                const numB = parseInt(b.replace('Lote #', ''));
+                return numA - numB;
+            });
+            const origenes = [...new Set(datosVisibles.map(p => p.origen ? `${p.origen.folio || 'Sin folio'} (Lote ${p.origen.loteId})` : '—'))].sort();
+            const comas = [...new Set(datosVisibles.map(p => p.coma))].sort();
+            const piezas = [...new Set(datosVisibles.map(p => String(p.piezas)))].sort((a, b) => parseInt(a) - parseInt(b));
+            const descs = [...new Set(datosVisibles.map(p => p.desc))].sort();
+            const empaques = [...new Set(datosVisibles.map(p => p.empaque))].sort();
+            const capacidades = [...new Set(datosVisibles.map(p => p.capacidad))].sort();
+            const motivos = [...new Set(datosVisibles.map(p => p.motivo))].sort();
+            const responsables = [...new Set(datosVisibles.map(p => getResponsable(p.status || 'Rojo')))].sort();
+            const fechas = [...new Set(datosVisibles.map(p => new Date(p.fechaRegistro).toLocaleDateString()))].sort();
+            const entregas = [...new Set(datosVisibles.map(p => p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—'))].sort();
 
-        function importarExcel(event) {
-            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
-            const file = event.target.files[0];
-            if (!file) return;
-            procesarArchivoExcel(file);
-            event.target.value = '';
-        }
-
-        function procesarArchivoExcel(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-                    if (jsonData.length === 0) {
-                        showToast('El archivo está vacío', 'error');
-                        return;
-                    }
-                    const resultados = procesarImportacion(jsonData);
-                    mostrarResumenImportacion(resultados);
-
-                    if (resultados.nuevos > 0) {
-                        const productosNuevos = productos.slice(-resultados.nuevos);
-                        insertarProductosEnLote(productosNuevos);
-                    }
-
-                    guardarDatosPersistentes();
-                } catch (error) {
-                    showToast('Error al leer el Excel: ' + error.message, 'error');
-                }
+            const selects = {
+                filterFolio: folios,
+                filterLote: lotesSet,
+                filterOrigen: origenes,
+                filterComa: comas,
+                filterPiezas: piezas,
+                filterDesc: descs,
+                filterEmpaque: empaques,
+                filterCapacidad: capacidades,
+                filterMotivo: motivos,
+                filterResponsable: responsables,
+                filterFecha: fechas,
+                filterEntrega: entregas
             };
-            reader.readAsArrayBuffer(file);
-        }
 
-        // ========== JSON ==========
-        function exportarJSON() {
-            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
-            const data = productos.map(p => {
-                return {
-                    folio: p.folio || null,
-                    lote: `Lote #${p.loteId}`,
-                    coma: p.coma,
-                    piezas: p.piezas,
-                    descripcion: p.desc,
-                    empaque: p.empaque,
-                    capacidad: p.capacidad,
-                    motivo: p.motivo,
-                    estado: p.status || 'Rojo',
-                    fecha_registro: new Date(p.fechaRegistro).toISOString().split('T')[0],
-                    fecha_entrega: p.fechaEntrega ? new Date(p.fechaEntrega).toISOString().split('T')[0] : null,
-                    version: p._version || 1
-                };
+            const currentValues = {};
+            Object.keys(selects).forEach(id => {
+                const select = document.getElementById(id);
+                if (select) currentValues[id] = select.value;
             });
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'Inventario_Lotes.json';
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('JSON exportado correctamente', 'success');
-            guardarDatosPersistentes();
-        }
-
-        function importarJSON(event) {
-            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
-            const file = event.target.files[0];
-            if (!file) return;
-            procesarArchivoJSON(file);
-            event.target.value = '';
-        }
-
-        function procesarArchivoJSON(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const jsonData = JSON.parse(e.target.result);
-                    if (!Array.isArray(jsonData) || jsonData.length === 0) {
-                        showToast('El archivo JSON está vacío', 'error');
-                        return;
-                    }
-                    const resultados = procesarImportacion(jsonData);
-                    mostrarResumenImportacion(resultados);
-
-                    if (resultados.nuevos > 0) {
-                        const productosNuevos = productos.slice(-resultados.nuevos);
-                        insertarProductosEnLote(productosNuevos);
-                    }
-
-                    guardarDatosPersistentes();
-                } catch (error) {
-                    showToast('Error al leer el JSON: ' + error.message, 'error');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function mostrarResumenImportacion(resultados) {
-            const { nuevos, duplicados, errores, resultados: detalles } = resultados;
-
-            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
-                <div class="modal-glass">
-                    <h2><i class="fas fa-file-import"></i> Resumen de importación</h2>
-                    <div style="margin: 1rem 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                        <div style="background: rgba(72, 187, 120, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #68d391;">${nuevos}</div>
-                            <div style="color: #8a9ab0; font-size: 0.8rem;">Nuevos productos</div>
-                        </div>
-                        <div style="background: rgba(236, 201, 75, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #f6e05e;">${duplicados}</div>
-                            <div style="color: #8a9ab0; font-size: 0.8rem;">Duplicados omitidos</div>
-                        </div>
-                        <div style="background: rgba(229, 62, 62, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #fc8181;">${errores}</div>
-                            <div style="color: #8a9ab0; font-size: 0.8rem;">Errores</div>
-                        </div>
-                    </div>
-                    <div style="max-height: 200px; overflow-y: auto; font-size: 0.8rem; color: #c8d2ec;">
-                        ${detalles.slice(0, 20).map(d => `<div>• ${d.mensaje}</div>`).join('')}
-                        ${detalles.length > 20 ? `<div>... y ${detalles.length - 20} más</div>` : ''}
-                    </div>
-                    <div class="modal-actions">
-                        <button class="btn close-btn" onclick="cerrarModal()">Cerrar</button>
-                        <button class="btn btn-success" onclick="cerrarModal(); renderBoard(); aplicarFiltros();">Aceptar</button>
-                    </div>
-                </div>
-            </div>`;
-            document.getElementById('modalContainer').innerHTML = html;
-        }
-
-        // ========== DROP ZONE ==========
-        const dropZone = document.getElementById('dropZone');
-        dropZone.addEventListener('dragover', function(e) {
-            if (!esAdmin()) return;
-            e.preventDefault();
-            this.classList.add('drag-over');
-        });
-        dropZone.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            this.classList.remove('drag-over');
-        });
-        dropZone.addEventListener('drop', function(e) {
-            if (!esAdmin()) return;
-            e.preventDefault();
-            this.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    procesarArchivoExcel(file);
-                } else if (file.name.endsWith('.json')) {
-                    procesarArchivoJSON(file);
+            Object.keys(selects).forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const currentVal = currentValues[id] || '';
+                const options = selects[id] || [];
+                select.innerHTML = '<option value="">Todos</option>';
+                options.forEach(val => {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    select.appendChild(opt);
+                });
+                if (currentVal && options.includes(currentVal)) {
+                    select.value = currentVal;
                 } else {
-                    showToast('Por favor, sube un archivo Excel (.xlsx/.xls) o JSON (.json)', 'error');
+                    select.value = '';
                 }
+            });
+
+            const retrasoSelect = document.getElementById('filterRetraso');
+            const retrasoVal = retrasoSelect.value;
+            retrasoSelect.innerHTML = '<option value="">Todos</option><option value="Si">Si</option><option value="No">No</option>';
+            if (retrasoVal && ['Si', 'No'].includes(retrasoVal)) {
+                retrasoSelect.value = retrasoVal;
             }
-        });
-        dropZone.addEventListener('click', function(e) {
-            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
-            if (isTouchDevice) {
-                document.getElementById('fileInput').click();
-            }
-        });
+        }
+
+        function aplicarFiltros() {
+            editingRowId = null;
+            renderList();
+            actualizarOpcionesFiltros();
+            guardarDatosPersistentes();
+        }
+
+        function limpiarTodosLosFiltros() {
+            document.querySelectorAll('.filter-select').forEach(sel => sel.value = '');
+            aplicarFiltros();
+        }
 
         // ========== RENDER TABLERO ==========
         function renderBoard() {
@@ -2594,321 +2674,6 @@
             }
         }
 
-        // ========== RENDER LISTA ==========
-        function renderList() {
-            let rows = getFilteredRows();
-            rows = ordenarProductos(rows);
-
-            const tbody = document.getElementById('tableBody');
-            const isAdmin = esAdmin();
-            if (rows.length === 0) {
-                tbody.innerHTML =
-                    `<tr><td colspan="13" style="text-align:center; padding:2rem; color:rgba(255,255,255,0.3);">No hay productos con esos filtros</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            rows.forEach(p => {
-                const st = p.status || 'Rojo';
-                const folio = p.folio || '—';
-                const isEditing = (editingRowId === p.id);
-                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
-
-                if (isEditing && isAdmin) {
-                    html += `<tr class="editing" data-id="${p.id}">
-                        <td><strong>${folio}</strong></td>
-                        <td>
-                            <select id="edit-lote-${p.id}">
-                                ${[...new Set(productos.map(p => p.loteId))].map(id => `<option value="${id}" ${id === p.loteId ? 'selected' : ''}>Lote #${id}</option>`).join('')}
-                            </select>
-                        </td>
-                        <td><input type="text" id="edit-coma-${p.id}" value="${p.coma}"></td>
-                        <td><input type="number" id="edit-piezas-${p.id}" value="${p.piezas}"></td>
-                        <td><input type="text" id="edit-desc-${p.id}" value="${p.desc}"></td>
-                        <td><input type="text" id="edit-empaque-${p.id}" value="${p.empaque}"></td>
-                        <td><input type="text" id="edit-capacidad-${p.id}" value="${p.capacidad}"></td>
-                        <td><input type="text" id="edit-motivo-${p.id}" value="${p.motivo}"></td>
-                        <td>${getResponsable(st)}</td>
-                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
-                        <td>${p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—'}</td>
-                        <td>${extra ? `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` : '—'}</td>
-                        <td>
-                            <div class="acciones">
-                                <button class="btn-icon save" onclick="guardarEdicion(${p.id})" title="Guardar"><i class="fas fa-check"></i></button>
-                                <button class="btn-icon cancel" onclick="cancelarEdicion(${p.id})" title="Cancelar"><i class="fas fa-times"></i></button>
-                            </div>
-                        </td>
-                    </tr>`;
-                } else {
-                    const retrasoDisplay = extra ?
-                        `<span class="light-blue" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a3050; box-shadow:0 0 8px rgba(26,48,80,0.25);"></span>` :
-                        '—';
-                    const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
-
-                    html += `<tr ondblclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" data-id="${p.id}">
-                        <td><strong>${folio}</strong></td>
-                        <td>Lote #${p.loteId}</td>
-                        <td>${p.coma}</td>
-                        <td>${p.piezas}</td>
-                        <td>${p.desc}</td>
-                        <td>${p.empaque}</td>
-                        <td>${p.capacidad}</td>
-                        <td>${p.motivo}</td>
-                        <td>${getResponsable(st)}</td>
-                        <td>${new Date(p.fechaRegistro).toLocaleDateString()}</td>
-                        <td>${entrega}</td>
-                        <td>${retrasoDisplay}</td>
-                        <td>
-                            <div class="acciones">
-                                <button class="btn-icon edit ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `iniciarEdicion(${p.id})` : ''}" title="${isAdmin ? 'Editar (doble clic)' : 'Solo lectura'}"><i class="fas fa-pen"></i></button>
-                                <button class="btn-icon danger ${!isAdmin ? 'disabled' : ''}" onclick="${isAdmin ? `eliminarProducto(${p.id})` : ''}" title="${isAdmin ? 'Eliminar' : 'Solo lectura'}"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    </tr>`;
-                }
-            });
-            tbody.innerHTML = html;
-        }
-
-        // ========== FILTROS ==========
-        function getFilteredRows() {
-            const filterFolio = document.getElementById('filterFolio').value;
-            const filterLote = document.getElementById('filterLote').value;
-            const filterComa = document.getElementById('filterComa').value;
-            const filterPiezas = document.getElementById('filterPiezas').value;
-            const filterDesc = document.getElementById('filterDesc').value;
-            const filterEmpaque = document.getElementById('filterEmpaque').value;
-            const filterCapacidad = document.getElementById('filterCapacidad').value;
-            const filterMotivo = document.getElementById('filterMotivo').value;
-            const filterResponsable = document.getElementById('filterResponsable').value;
-            const filterFecha = document.getElementById('filterFecha').value;
-            const filterEntrega = document.getElementById('filterEntrega').value;
-            const filterRetraso = document.getElementById('filterRetraso').value;
-
-            return productos.filter(p => {
-                const st = p.status || 'Rojo';
-                const folio = p.folio || 'Sin folio';
-                const loteStr = `Lote #${p.loteId}`;
-                const responsable = getResponsable(st);
-                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
-                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
-                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
-                const tieneRetraso = extra ? 'Si' : 'No';
-
-                if (filterFolio && folio !== filterFolio) return false;
-                if (filterLote && loteStr !== filterLote) return false;
-                if (filterComa && p.coma !== filterComa) return false;
-                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
-                if (filterDesc && p.desc !== filterDesc) return false;
-                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
-                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
-                if (filterMotivo && p.motivo !== filterMotivo) return false;
-                if (filterResponsable && responsable !== filterResponsable) return false;
-                if (filterFecha && fechaReg !== filterFecha) return false;
-                if (filterEntrega && entrega !== filterEntrega) return false;
-                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
-                return true;
-            });
-        }
-
-        function actualizarOpcionesFiltros() {
-            const filterFolio = document.getElementById('filterFolio').value;
-            const filterLote = document.getElementById('filterLote').value;
-            const filterComa = document.getElementById('filterComa').value;
-            const filterPiezas = document.getElementById('filterPiezas').value;
-            const filterDesc = document.getElementById('filterDesc').value;
-            const filterEmpaque = document.getElementById('filterEmpaque').value;
-            const filterCapacidad = document.getElementById('filterCapacidad').value;
-            const filterMotivo = document.getElementById('filterMotivo').value;
-            const filterResponsable = document.getElementById('filterResponsable').value;
-            const filterFecha = document.getElementById('filterFecha').value;
-            const filterEntrega = document.getElementById('filterEntrega').value;
-            const filterRetraso = document.getElementById('filterRetraso').value;
-
-            const datosVisibles = productos.filter(p => {
-                const st = p.status || 'Rojo';
-                const folio = p.folio || 'Sin folio';
-                const loteStr = `Lote #${p.loteId}`;
-                const responsable = getResponsable(st);
-                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
-                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
-                const extra = getAdditionalLight(st, getDiasAtraso(p.loteId));
-                const tieneRetraso = extra ? 'Si' : 'No';
-
-                if (filterFolio && folio !== filterFolio) return false;
-                if (filterLote && loteStr !== filterLote) return false;
-                if (filterComa && p.coma !== filterComa) return false;
-                if (filterPiezas && String(p.piezas) !== filterPiezas) return false;
-                if (filterDesc && p.desc !== filterDesc) return false;
-                if (filterEmpaque && p.empaque !== filterEmpaque) return false;
-                if (filterCapacidad && p.capacidad !== filterCapacidad) return false;
-                if (filterMotivo && p.motivo !== filterMotivo) return false;
-                if (filterResponsable && responsable !== filterResponsable) return false;
-                if (filterFecha && fechaReg !== filterFecha) return false;
-                if (filterEntrega && entrega !== filterEntrega) return false;
-                if (filterRetraso && tieneRetraso !== filterRetraso) return false;
-                return true;
-            });
-
-            const folios = [...new Set(datosVisibles.map(p => p.folio || 'Sin folio'))].sort();
-            const lotesSet = [...new Set(datosVisibles.map(p => `Lote #${p.loteId}`))].sort((a, b) => {
-                const numA = parseInt(a.replace('Lote #', ''));
-                const numB = parseInt(b.replace('Lote #', ''));
-                return numA - numB;
-            });
-            const comas = [...new Set(datosVisibles.map(p => p.coma))].sort();
-            const piezas = [...new Set(datosVisibles.map(p => String(p.piezas)))].sort((a, b) => parseInt(a) - parseInt(
-            b));
-            const descs = [...new Set(datosVisibles.map(p => p.desc))].sort();
-            const empaques = [...new Set(datosVisibles.map(p => p.empaque))].sort();
-            const capacidades = [...new Set(datosVisibles.map(p => p.capacidad))].sort();
-            const motivos = [...new Set(datosVisibles.map(p => p.motivo))].sort();
-            const responsables = [...new Set(datosVisibles.map(p => getResponsable(p.status || 'Rojo')))].sort();
-            const fechas = [...new Set(datosVisibles.map(p => new Date(p.fechaRegistro).toLocaleDateString()))].sort();
-            const entregas = [...new Set(datosVisibles.map(p => p.fechaEntrega ? new Date(p.fechaEntrega)
-                .toLocaleDateString() : '—'))].sort();
-
-            const selects = {
-                filterFolio: folios,
-                filterLote: lotesSet,
-                filterComa: comas,
-                filterPiezas: piezas,
-                filterDesc: descs,
-                filterEmpaque: empaques,
-                filterCapacidad: capacidades,
-                filterMotivo: motivos,
-                filterResponsable: responsables,
-                filterFecha: fechas,
-                filterEntrega: entregas
-            };
-
-            const currentValues = {};
-            Object.keys(selects).forEach(id => {
-                const select = document.getElementById(id);
-                if (select) currentValues[id] = select.value;
-            });
-
-            Object.keys(selects).forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
-                const currentVal = currentValues[id] || '';
-                const options = selects[id] || [];
-                select.innerHTML = '<option value="">Todos</option>';
-                options.forEach(val => {
-                    const opt = document.createElement('option');
-                    opt.value = val;
-                    opt.textContent = val;
-                    select.appendChild(opt);
-                });
-                if (currentVal && options.includes(currentVal)) {
-                    select.value = currentVal;
-                } else {
-                    select.value = '';
-                }
-            });
-
-            const retrasoSelect = document.getElementById('filterRetraso');
-            const retrasoVal = retrasoSelect.value;
-            retrasoSelect.innerHTML = '<option value="">Todos</option><option value="Si">Si</option><option value="No">No</option>';
-            if (retrasoVal && ['Si', 'No'].includes(retrasoVal)) {
-                retrasoSelect.value = retrasoVal;
-            }
-        }
-
-        function aplicarFiltros() {
-            editingRowId = null;
-            renderList();
-            actualizarOpcionesFiltros();
-            guardarDatosPersistentes();
-        }
-
-        function limpiarTodosLosFiltros() {
-            document.querySelectorAll('.filter-select').forEach(sel => sel.value = '');
-            aplicarFiltros();
-        }
-
-        // ========== EDICIÓN ==========
-        async function iniciarEdicion(id) {
-            if (!esAdmin()) { showToast('No tienes permisos para editar', 'error'); return; }
-            if (editingRowId !== null && editingRowId !== id) {
-                cancelarEdicion(editingRowId);
-            }
-            editingRowId = id;
-            renderList();
-            setTimeout(() => {
-                const firstInput = document.getElementById(`edit-coma-${id}`);
-                if (firstInput) firstInput.focus();
-            }, 50);
-        }
-
-        async function guardarEdicion(id) {
-            if (!esAdmin()) { showToast('No tienes permisos para guardar cambios', 'error'); return; }
-            const prod = productos.find(p => p.id === id);
-            if (!prod) return;
-
-            const nuevoLoteId = parseInt(document.getElementById(`edit-lote-${id}`)?.value);
-            const nuevaComa = document.getElementById(`edit-coma-${id}`)?.value.trim();
-            const nuevasPiezas = parseInt(document.getElementById(`edit-piezas-${id}`)?.value) || 0;
-            const nuevaDesc = document.getElementById(`edit-desc-${id}`)?.value.trim() || 'Sin descripción';
-            const nuevoEmpaque = document.getElementById(`edit-empaque-${id}`)?.value.trim() || '—';
-            const nuevaCapacidad = document.getElementById(`edit-capacidad-${id}`)?.value.trim() || '—';
-            const nuevoMotivo = document.getElementById(`edit-motivo-${id}`)?.value.trim() || '—';
-
-            if (!nuevaComa) {
-                showToast('El campo COMA no puede estar vacío', 'error');
-                return;
-            }
-
-            prod.loteId = nuevoLoteId;
-            prod.coma = nuevaComa;
-            prod.piezas = nuevasPiezas;
-            prod.desc = nuevaDesc;
-            prod.empaque = nuevoEmpaque;
-            prod.capacidad = nuevaCapacidad;
-            prod.motivo = nuevoMotivo;
-            prod.fechaRegistro = prod.fechaRegistro || new Date().toISOString();
-            prod._version = (prod._version || 1) + 1;
-
-            editingRowId = null;
-            guardarDatosPersistentes();
-            actualizarUI();
-            showToast('Producto actualizado correctamente', 'success');
-
-            await enviarOperacion('UPDATE', prod);
-        }
-
-        function cancelarEdicion(id) {
-            if (editingRowId === id) {
-                editingRowId = null;
-                renderList();
-            }
-        }
-
-        async function eliminarProducto(id) {
-            if (!esAdmin()) { showToast('No tienes permisos para eliminar', 'error'); return; }
-            if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
-
-            const index = productos.findIndex(p => p.id === id);
-            if (index === -1) return;
-
-            const prod = productos[index];
-            const loteId = prod.loteId;
-
-            productos.splice(index, 1);
-
-            const productosEnLote = getProductosByLote(loteId);
-            if (productosEnLote.length === 0) {
-                showToast(`Lote #${loteId} eliminado porque no tiene productos`, 'info');
-            }
-
-            if (editingRowId === id) editingRowId = null;
-            guardarDatosPersistentes();
-            actualizarUI();
-            showToast('Producto eliminado', 'success');
-
-            await enviarOperacion('DELETE', { id: id });
-        }
-
         // ========== VER DETALLE ==========
         function verDetalleLote(loteId) {
             const items = getProductosByLote(loteId);
@@ -2918,9 +2683,19 @@
             }
             const st = items[0].status || 'Rojo';
             const folio = items[0].folio || 'Sin folio';
+            // Origen solo del primer producto (si tiene)
+            const origen = items[0].origen || null;
+            let origenDisplay = '';
+            if (origen) {
+                const folioOrigen = origen.folio || 'Sin folio';
+                origenDisplay = `<div style="font-size:0.8rem; color:#8a9ab0; margin-bottom:0.5rem;">
+                    <i class="fas fa-arrow-right"></i> Origen: ${folioOrigen} (Lote ${origen.loteId})
+                </div>`;
+            }
             let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
                 <div class="modal-glass">
                     <h2><i class="fas fa-box"></i> ${folio} · Lote #${loteId} · ${st}</h2>
+                    ${origenDisplay}
                     <div style="max-height:300px; overflow-y:auto; margin-top:1rem;">
                         <table style="min-width:auto; width:100%; font-size:0.8rem; color:#d0d8e8;">
                             <thead><tr><th style="color:#8a9ab0;">COMA</th><th style="color:#8a9ab0;">Piezas</th><th style="color:#8a9ab0;">Descripción</th><th style="color:#8a9ab0;">Motivo</th></tr></thead>
@@ -2938,23 +2713,25 @@
 
         function cerrarModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
-        // ========== AGREGAR PRODUCTO ==========
+        // ========== AGREGAR PRODUCTO - CORREGIDO ==========
         function openAgregarProductoModal() {
             if (!esAdmin()) { showToast('No tienes permisos para agregar productos', 'error'); return; }
             let lotesIds = [...new Set(productos.map(p => p.loteId))];
             let loteOptions = lotesIds.map(id =>
                 `<option value="${id}">Lote #${id}</option>`).join('');
-            if (loteOptions) loteOptions = `<option value="">Seleccionar lote existente</option>` + loteOptions;
 
             let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
                 <div class="modal-glass">
                     <h2><i class="fas fa-plus"></i> Agregar producto a lote</h2>
-                    <label>Seleccionar lote (o dejar vacío para crear nuevo)</label>
-                    <select id="loteSelect">${loteOptions}</select>
-                    <div style="margin:0.5rem 0;"><button class="btn" onclick="crearNuevoLoteEnModal()" style="font-size:0.7rem;">+ Crear nuevo lote</button></div>
-                    <div id="nuevoLoteContainer" style="display:none;">
-                        <label>Nuevo lote ID (automático)</label>
-                        <input type="text" id="nuevoLoteId" value="Nuevo Lote #${nextProdId}" disabled>
+                    <label>Seleccionar lote existente (o crear nuevo)</label>
+                    <select id="loteSelect">
+                        <option value="">Seleccionar lote existente</option>
+                        ${loteOptions}
+                        <option value="nuevo" style="color:#63b3ed; font-weight:bold;">+ Crear nuevo lote</option>
+                    </select>
+                    <div id="nuevoLoteContainer" style="display:none; margin-top:0.5rem;">
+                        <label>Nuevo lote ID</label>
+                        <input type="number" id="nuevoLoteIdInput" placeholder="Ingrese el número del nuevo lote" min="1">
                     </div>
                     <label>COMA</label><input type="text" id="prodComa" placeholder="Código COMA">
                     <label>Piezas</label><input type="number" id="prodPiezas" placeholder="# Piezas">
@@ -2970,31 +2747,47 @@
                 </div>
             </div>`;
             document.getElementById('modalContainer').innerHTML = html;
-        }
 
-        function crearNuevoLoteEnModal() {
-            const container = document.getElementById('nuevoLoteContainer');
-            if (container.style.display === 'none') {
-                container.style.display = 'block';
-                document.getElementById('nuevoLoteId').value = `Nuevo Lote #${nextProdId}`;
-            } else {
-                container.style.display = 'none';
-            }
+            // Evento para mostrar/ocultar el input del nuevo lote
+            document.getElementById('loteSelect').addEventListener('change', function() {
+                const container = document.getElementById('nuevoLoteContainer');
+                if (this.value === 'nuevo') {
+                    container.style.display = 'block';
+                    document.getElementById('nuevoLoteIdInput').focus();
+                } else {
+                    container.style.display = 'none';
+                }
+            });
         }
 
         async function confirmarAgregarProducto() {
             if (!esAdmin()) return;
             const loteSelect = document.getElementById('loteSelect');
             let loteId = loteSelect.value;
-            const crearNuevo = document.getElementById('nuevoLoteContainer').style.display === 'block';
-            const folio = document.getElementById('prodFolio').value.trim() || null;
+            const crearNuevo = loteId === 'nuevo';
 
-            if (crearNuevo || !loteId) {
-                loteId = nextProdId;
+            let nuevoLoteId = null;
+            if (crearNuevo) {
+                nuevoLoteId = parseInt(document.getElementById('nuevoLoteIdInput').value);
+                if (!nuevoLoteId || isNaN(nuevoLoteId) || nuevoLoteId <= 0) {
+                    showToast('Ingrese un número de lote válido', 'error');
+                    return;
+                }
+                // Verificar que el lote no existe
+                const existe = productos.some(p => p.loteId === nuevoLoteId);
+                if (existe) {
+                    showToast(`El Lote #${nuevoLoteId} ya existe`, 'error');
+                    return;
+                }
+                loteId = nuevoLoteId;
+            } else if (!loteId) {
+                showToast('Seleccione un lote existente o cree uno nuevo', 'error');
+                return;
             } else {
                 loteId = parseInt(loteId);
             }
 
+            const folio = document.getElementById('prodFolio').value.trim() || null;
             const coma = document.getElementById('prodComa').value.trim();
             const piezas = parseInt(document.getElementById('prodPiezas').value) || 0;
             const desc = document.getElementById('prodDesc').value.trim() || 'Sin descripción';
@@ -3020,6 +2813,7 @@
                 motivo: motivo,
                 folio: folio || null,
                 status: finalStatus,
+                origen: null,
                 fechaRegistro: new Date().toISOString(),
                 fechaEntrega: null,
                 _version: 1
@@ -3029,7 +2823,7 @@
             cerrarModal();
             guardarDatosPersistentes();
             actualizarUI();
-            showToast('Producto agregado correctamente', 'success');
+            showToast(`Producto agregado al Lote #${loteId}`, 'success');
 
             await enviarOperacion('INSERT', nuevoProducto);
         }
@@ -3088,9 +2882,11 @@
                 return;
             }
 
+            // Al asignar nuevo folio, se limpia el origen de cada producto
             productosLote.forEach(p => {
                 p.folio = nuevoFolio;
                 p.status = 'Amarillo';
+                p.origen = null; // Limpiar origen
                 p.fechaRegistro = new Date().toISOString();
                 p._version = (p._version || 1) + 1;
             });
@@ -3230,6 +3026,337 @@
                 await enviarOperacion('UPDATE', p);
             }
         }
+
+        // ========== PROCESAR IMPORTACIÓN ==========
+        function procesarImportacion(data) {
+            let nuevos = 0;
+            let duplicados = 0;
+            let errores = 0;
+            let resultados = [];
+
+            const lotesMap = new Map();
+
+            data.forEach(row => {
+                const coma = row['COMA'] || row['Coma'] || row['coma'] || '';
+                const piezas = parseInt(row['Piezas'] || row['piezas'] || 0);
+                const desc = row['Descripción'] || row['Descripcion'] || row['descripcion'] || row['desc'] ||
+                    'Sin descripción';
+                const empaque = row['Empaque'] || row['empaque'] || '—';
+                const capacidad = row['Capacidad'] || row['capacidad'] || '—';
+                const motivo = row['Motivo'] || row['motivo'] || '—';
+                let folio = row['Folio'] || row['folio'] || null;
+                if (folio !== null && folio !== '') {
+                    folio = String(folio).trim();
+                }
+                let loteStr = row['Lote'] || row['lote'] || null;
+                let loteNumero = null;
+                if (loteStr !== null && loteStr !== '') {
+                    const loteStrClean = String(loteStr).trim();
+                    const match = loteStrClean.match(/(\d+)/);
+                    if (match) {
+                        loteNumero = parseInt(match[1]);
+                    }
+                }
+
+                if (!coma) {
+                    errores++;
+                    resultados.push({ tipo: 'error', mensaje: 'Falta COMA en una fila' });
+                    return;
+                }
+
+                const existe = productos.find(p => p.coma === coma);
+                if (existe) {
+                    duplicados++;
+                    resultados.push({ tipo: 'duplicado', mensaje: `COMA "${coma}" ya existe` });
+                    return;
+                }
+
+                const loteId = loteNumero || nextProdId;
+
+                if (!lotesMap.has(loteId)) {
+                    lotesMap.set(loteId, {
+                        folio: folio,
+                        status: folio ? 'Amarillo' : 'Rojo',
+                        fechaEntrega: null
+                    });
+                } else {
+                    const loteInfo = lotesMap.get(loteId);
+                    if (folio && !loteInfo.folio) {
+                        loteInfo.folio = folio;
+                        if (loteInfo.status === 'Rojo') {
+                            loteInfo.status = 'Amarillo';
+                        }
+                    }
+                }
+
+                productos.push({
+                    id: nextProdId++,
+                    loteId: loteId,
+                    coma: coma,
+                    piezas: piezas,
+                    desc: desc,
+                    empaque: empaque,
+                    capacidad: capacidad,
+                    motivo: motivo,
+                    folio: folio,
+                    status: lotesMap.get(loteId).status,
+                    origen: null,
+                    fechaRegistro: new Date().toISOString(),
+                    fechaEntrega: null,
+                    _version: 1
+                });
+                nuevos++;
+                resultados.push({ tipo: 'nuevo', mensaje: `Producto "${coma}" agregado al Lote #${loteId}${folio ? ' con folio '+folio : ''}` });
+            });
+
+            return { nuevos, duplicados, errores, resultados };
+        }
+
+        // ========== BULK INSERT PARALELO ==========
+        async function insertarProductosEnLote(productosNuevos) {
+            if (!esAdmin()) return;
+            if (productosNuevos.length === 0) return;
+
+            setSyncStatus('syncing', `Insertando ${productosNuevos.length} productos...`);
+            showToast(`⏳ Insertando ${productosNuevos.length} productos en Supabase...`, 'info');
+
+            const batchSize = 50;
+            let insertados = 0;
+            let errores = 0;
+
+            for (let i = 0; i < productosNuevos.length; i += batchSize) {
+                const batch = productosNuevos.slice(i, i + batchSize);
+                const promises = batch.map(p => enviarOperacion('INSERT', p));
+
+                const resultados = await Promise.allSettled(promises);
+                resultados.forEach(r => {
+                    if (r.status === 'fulfilled' && r.value) {
+                        insertados++;
+                    } else {
+                        errores++;
+                    }
+                });
+
+                console.log(`📦 Lote ${Math.floor(i/batchSize) + 1}: ${batch.length} productos, ${insertados} insertados`);
+            }
+
+            if (errores > 0) {
+                showToast(`⚠️ ${insertados} productos insertados, ${errores} errores`, 'error');
+            } else {
+                showToast(`✅ ${insertados} productos insertados correctamente`, 'success');
+            }
+
+            setSyncStatus('realtime', 'Tiempo real conectado');
+            actualizarUI();
+        }
+
+        // ========== EXCEL ==========
+        function exportarExcel() {
+            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
+            const data = [];
+            data.push(['Folio', 'Lote', 'Origen', 'COMA', 'Piezas', 'Descripción', 'Empaque', 'Capacidad', 'Motivo', 'Responsable',
+                'Fecha Registro', 'Fecha Entrega', 'Estado', 'Retraso'
+            ]);
+
+            productos.forEach(p => {
+                const st = p.status || 'Rojo';
+                const folio = p.folio || '';
+                const loteStr = `Lote ${p.loteId}`;
+                const origenDisplay = p.origen ? `${p.origen.folio || 'Sin folio'} (Lote ${p.origen.loteId})` : '—';
+                const responsable = getResponsable(st);
+                const fechaReg = new Date(p.fechaRegistro).toLocaleDateString();
+                const entrega = p.fechaEntrega ? new Date(p.fechaEntrega).toLocaleDateString() : '—';
+                const dias = getDiasAtraso(p.loteId);
+                const extra = getAdditionalLight(st, dias);
+                const tieneRetraso = extra ? 'Si' : 'No';
+
+                data.push([
+                    folio, loteStr, origenDisplay, p.coma, p.piezas, p.desc, p.empaque, p.capacidad,
+                    p.motivo, responsable, fechaReg, entrega, st, tieneRetraso
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+            ws['!cols'] = [
+                { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 8 },
+                { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+                { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+                { wch: 8 }
+            ];
+            XLSX.writeFile(wb, 'Inventario_Lotes.xlsx');
+            showToast('Excel exportado correctamente', 'success');
+            guardarDatosPersistentes();
+        }
+
+        function importarExcel(event) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
+            const file = event.target.files[0];
+            if (!file) return;
+            procesarArchivoExcel(file);
+            event.target.value = '';
+        }
+
+        function procesarArchivoExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    if (jsonData.length === 0) {
+                        showToast('El archivo está vacío', 'error');
+                        return;
+                    }
+                    const resultados = procesarImportacion(jsonData);
+                    mostrarResumenImportacion(resultados);
+
+                    if (resultados.nuevos > 0) {
+                        const productosNuevos = productos.slice(-resultados.nuevos);
+                        insertarProductosEnLote(productosNuevos);
+                    }
+
+                    guardarDatosPersistentes();
+                } catch (error) {
+                    showToast('Error al leer el Excel: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ========== JSON ==========
+        function exportarJSON() {
+            if (!esAdmin()) { showToast('No tienes permisos para exportar', 'error'); return; }
+            const data = productos.map(p => {
+                return {
+                    folio: p.folio || null,
+                    lote: `Lote #${p.loteId}`,
+                    origen: p.origen ? `${p.origen.folio || 'Sin folio'} (Lote ${p.origen.loteId})` : null,
+                    coma: p.coma,
+                    piezas: p.piezas,
+                    descripcion: p.desc,
+                    empaque: p.empaque,
+                    capacidad: p.capacidad,
+                    motivo: p.motivo,
+                    estado: p.status || 'Rojo',
+                    fecha_registro: new Date(p.fechaRegistro).toISOString().split('T')[0],
+                    fecha_entrega: p.fechaEntrega ? new Date(p.fechaEntrega).toISOString().split('T')[0] : null,
+                    version: p._version || 1
+                };
+            });
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Inventario_Lotes.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('JSON exportado correctamente', 'success');
+            guardarDatosPersistentes();
+        }
+
+        function importarJSON(event) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
+            const file = event.target.files[0];
+            if (!file) return;
+            procesarArchivoJSON(file);
+            event.target.value = '';
+        }
+
+        function procesarArchivoJSON(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+                        showToast('El archivo JSON está vacío', 'error');
+                        return;
+                    }
+                    const resultados = procesarImportacion(jsonData);
+                    mostrarResumenImportacion(resultados);
+
+                    if (resultados.nuevos > 0) {
+                        const productosNuevos = productos.slice(-resultados.nuevos);
+                        insertarProductosEnLote(productosNuevos);
+                    }
+
+                    guardarDatosPersistentes();
+                } catch (error) {
+                    showToast('Error al leer el JSON: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function mostrarResumenImportacion(resultados) {
+            const { nuevos, duplicados, errores, resultados: detalles } = resultados;
+
+            let html = `<div class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+                <div class="modal-glass">
+                    <h2><i class="fas fa-file-import"></i> Resumen de importación</h2>
+                    <div style="margin: 1rem 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div style="background: rgba(72, 187, 120, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #68d391;">${nuevos}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Nuevos productos</div>
+                        </div>
+                        <div style="background: rgba(236, 201, 75, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #f6e05e;">${duplicados}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Duplicados omitidos</div>
+                        </div>
+                        <div style="background: rgba(229, 62, 62, 0.15); padding: 0.8rem; border-radius: 1rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #fc8181;">${errores}</div>
+                            <div style="color: #8a9ab0; font-size: 0.8rem;">Errores</div>
+                        </div>
+                    </div>
+                    <div style="max-height: 200px; overflow-y: auto; font-size: 0.8rem; color: #c8d2ec;">
+                        ${detalles.slice(0, 20).map(d => `<div>• ${d.mensaje}</div>`).join('')}
+                        ${detalles.length > 20 ? `<div>... y ${detalles.length - 20} más</div>` : ''}
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn close-btn" onclick="cerrarModal()">Cerrar</button>
+                        <button class="btn btn-success" onclick="cerrarModal(); renderBoard(); aplicarFiltros();">Aceptar</button>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('modalContainer').innerHTML = html;
+        }
+
+        // ========== DROP ZONE ==========
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', function(e) {
+            if (!esAdmin()) return;
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', function(e) {
+            if (!esAdmin()) return;
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    procesarArchivoExcel(file);
+                } else if (file.name.endsWith('.json')) {
+                    procesarArchivoJSON(file);
+                } else {
+                    showToast('Por favor, sube un archivo Excel (.xlsx/.xls) o JSON (.json)', 'error');
+                }
+            }
+        });
+        dropZone.addEventListener('click', function(e) {
+            if (!esAdmin()) { showToast('No tienes permisos para importar', 'error'); return; }
+            if (isTouchDevice) {
+                document.getElementById('fileInput').click();
+            }
+        });
 
         // ========== DRAG & DROP ==========
         let dragGhost = null;
